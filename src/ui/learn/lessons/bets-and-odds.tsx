@@ -139,8 +139,8 @@ export function BetsAndOddsLesson(): ReactNode {
         <Prose>
           <p>
             Most tables use eight decks; some use six. The difference is tiny — the probabilities move in the fourth decimal place — but it exists, and it
-            cuts both ways: six decks are fractionally worse for Player and Banker and fractionally better for the Tie, and markedly worse for the pair bets
-            (pairs are rarer with fewer decks).
+            cuts both ways: six decks are fractionally better for the Banker, fractionally worse for the Player and the Tie, and markedly worse for the pair
+            bets (pairs are rarer with fewer decks).
           </p>
         </Prose>
         <Table caption="Six versus eight decks" compact>

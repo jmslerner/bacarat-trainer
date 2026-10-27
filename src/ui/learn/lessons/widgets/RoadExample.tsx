@@ -100,7 +100,7 @@ export interface DerivationListProps {
 const DOT_CLASS: Record<DerivedKind, { red: string; blue: string }> = {
   bigEye: { red: styles.dotRed, blue: styles.dotBlue },
   small: { red: cx(styles.dotRed, styles.dotSolidRed), blue: cx(styles.dotBlue, styles.dotSolidBlue) },
-  cockroach: { red: styles.dotRed, blue: styles.dotBlue },
+  cockroach: { red: cx(styles.dotSlash, styles.dotSlashRed), blue: cx(styles.dotSlash, styles.dotSlashBlue) },
 };
 
 /** The first entries of a derived road, each with the comparison that produced its colour. */

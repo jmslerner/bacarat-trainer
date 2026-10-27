@@ -45,7 +45,7 @@ describe('sessionExpectation', () => {
     expect(one.edge).toBeCloseTo(houseEdge('banker', DEFAULT_RULES), 12);
   });
   it('is zero for zero hands or amounts', () => {
-    expect(sessionExpectation('player', 10, 0, DEFAULT_RULES).expectedNet).toBe(0);
+    expect(Math.abs(sessionExpectation('player', 10, 0, DEFAULT_RULES).expectedNet)).toBe(0);
     expect(sessionExpectation('player', 0, 50, DEFAULT_RULES).stdDev).toBe(0);
   });
 });

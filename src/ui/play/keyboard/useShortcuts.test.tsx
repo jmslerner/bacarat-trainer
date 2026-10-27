@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { shortcutFor, useShortcuts, type ShortcutHandlers } from './useShortcuts';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  document.querySelectorAll('[role="dialog"]').forEach((d) => d.remove());
+});
 
 function handlers(): ShortcutHandlers & { calls: string[] } {
   const calls: string[] = [];
@@ -71,12 +74,20 @@ describe('useShortcuts', () => {
     fireEvent.keyDown(window, { key: 'p', repeat: true });
     expect(h.calls).toEqual(['place:player']);
 
+    // Space on a focused button activates that button instead of dealing; letters still work there
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    expect(fireEvent.keyDown(button, { key: ' ' })).toBe(true);
+    fireEvent.keyDown(button, { key: 'r' });
+    expect(h.calls).toEqual(['place:player', 'rebet']);
+    button.remove();
+
     const dialog = document.createElement('div');
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
     document.body.appendChild(dialog);
     fireEvent.keyDown(window, { key: 'b' });
-    expect(h.calls).toEqual(['place:player']);
+    expect(h.calls).toEqual(['place:player', 'rebet']);
     dialog.remove();
   });
 

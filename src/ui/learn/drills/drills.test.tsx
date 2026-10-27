@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { DEFAULT_RULES, createRng } from '@/engine';
+import { trueCount } from '@/strategy';
+import { cardName, rulesStore, sanitizeRules } from '@/ui/shell';
 import {
   BestBetDrill,
   CountingDrill,
@@ -39,6 +41,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  rulesStore.reset();
 });
 
 function storedScores(): DrillScores | null {
@@ -316,6 +319,80 @@ describe('CountingDrill', () => {
     expect(feedback()).toHaveAttribute('data-correct', 'false');
     expect(feedback()).toHaveTextContent('you were off by 1');
     expect(storedScores()?.counting).toMatchObject({ attempted: 2, correct: 1, streak: 0, best: 1 });
+  });
+
+  it('deals fresh cards when started again after Change settings or Stop', () => {
+    vi.useFakeTimers();
+    const deal = (i: number) => generateCountingCards(createRng(questionSeed(2, i)), 8);
+    render(<CountingDrill seed={2} cards={8} pace="blitz" />);
+    fireEvent.click(screen.getByTestId('count-start'));
+    expect(screen.getByRole('img', { name: cardName(deal(0)[0]) })).toBeInTheDocument();
+    for (let i = 0; i < 8; i++) {
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+    }
+    const input = screen.getByLabelText('Running count');
+    fireEvent.change(input, { target: { value: formatCount(runningCountOf(deal(0), DRAGON7_COUNT)) } });
+    fireEvent.submit(input.closest('form')!);
+    expect(feedback()).toHaveAttribute('data-correct', 'true');
+
+    // Change settings → Start: the second seeded deal, not the one just revealed.
+    fireEvent.click(screen.getByRole('button', { name: 'Change settings' }));
+    expect(screen.getByTestId('count-start')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('count-start'));
+    const second = deal(1);
+    for (let i = 0; i < 8; i++) {
+      expect(screen.getByTestId('count-progress')).toHaveTextContent(`Card ${i + 1} of 8`);
+      expect(screen.getByRole('img', { name: cardName(second[i]) })).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+    }
+    expect(screen.getByTestId('drill-question')).toHaveTextContent('What is the running count?');
+    const input2 = screen.getByLabelText('Running count');
+    fireEvent.change(input2, { target: { value: formatCount(runningCountOf(second, DRAGON7_COUNT)) } });
+    fireEvent.submit(input2.closest('form')!);
+    expect(feedback()).toHaveAttribute('data-correct', 'true');
+    expect(storedScores()?.counting).toMatchObject({ attempted: 2, correct: 2 });
+
+    // Deal again, stop part-way, start again: yet another deal (the stopped one is not re-dealt).
+    fireEvent.click(screen.getByTestId('drill-next'));
+    expect(screen.getByRole('img', { name: cardName(deal(2)[0]) })).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.click(screen.getByTestId('count-start'));
+    const fourth = deal(3);
+    for (let i = 0; i < 3; i++) {
+      expect(screen.getByRole('img', { name: cardName(fourth[i]) })).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+    }
+  });
+
+  it('uses the active table’s deck count for the shoe and the true count', () => {
+    vi.useFakeTimers();
+    rulesStore.set(sanitizeRules({ ...DEFAULT_RULES, decks: 6 }));
+    const cards = generateCountingCards(createRng(questionSeed(9, 0)), 8, 6);
+    const expected = runningCountOf(cards, DRAGON7_COUNT);
+    render(<CountingDrill seed={9} cards={8} pace="blitz" />);
+    fireEvent.click(screen.getByTestId('count-start'));
+    for (let i = 0; i < 8; i++) {
+      expect(screen.getByRole('img', { name: cardName(cards[i]) })).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+    }
+    const input = screen.getByLabelText('Running count');
+    fireEvent.change(input, { target: { value: formatCount(expected) } });
+    fireEvent.submit(input.closest('form')!);
+    expect(feedback()).toHaveAttribute('data-correct', 'true');
+    const tc = trueCount(expected, 6 * 52 - 8);
+    expect(screen.getByTestId('count-true')).toHaveTextContent('a 6-deck shoe');
+    expect(screen.getByTestId('count-true')).toHaveTextContent(`≈ ${tc >= 0 ? '+' : '−'}${Math.abs(tc).toFixed(1)}`);
   });
 
   it('can be stopped while dealing', () => {

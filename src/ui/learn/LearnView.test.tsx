@@ -28,7 +28,7 @@ describe('LearnView', () => {
     expect(screen.getByRole('heading', { level: 1, name: /learn baccarat/i })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: /lessons/i });
     for (const l of LESSONS) {
-      expect(within(nav).getByRole('link', { name: new RegExp(`${l.number}\\s*${l.short}`) })).toHaveAttribute('href', `#learn/${l.id}`);
+      expect(within(nav).getByRole('link', { name: l.short })).toHaveAttribute('href', `#learn/${l.id}`);
     }
     expect(within(nav).getByRole('link', { name: /drills/i })).toHaveAttribute('href', '#learn/drills');
     expect(within(nav).getByRole('link', { name: /^learn$/i })).toHaveAttribute('aria-current', 'page');

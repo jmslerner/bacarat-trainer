@@ -2,7 +2,7 @@
  * Best-bet drill logic (pure). Lists three or four bets offered by the active table and asks which has the
  * lowest (occasionally: highest) house edge. `houseEdge` from the engine is the oracle.
  */
-import { BET_LABELS, BET_TYPES, DEFAULT_RULES, houseEdge, isBetEnabled, formatMoney } from '@/engine';
+import { BET_LABELS, BET_TYPES, DEFAULT_RULES, exactProbabilities, houseEdge, isBetEnabled, formatMoney } from '@/engine';
 import type { BetType, Rng, TableRules } from '@/engine';
 import { shuffled, weightedIndex } from './seeds';
 
@@ -94,6 +94,11 @@ export function formatEdge(edge: number): string {
   return `${(edge * 100).toFixed(2)}%`;
 }
 
+/** "44.6%" — a probability for a teaching sentence. */
+function formatPercent(p: number): string {
+  return `${(p * 100).toFixed(1)}%`;
+}
+
 /** Expected loss on a $100 bet. */
 export function lossPer100(edge: number): string {
   return formatMoney(Math.round(edge * 100 * 100) / 100);
@@ -121,7 +126,11 @@ export function explainBestBet(q: BestBetQuestion, rules: TableRules): BestBetEx
     else if (rules.bankerRule === 'commission') lines.push(`Classic Banker gives up ${Math.round(rules.commissionRate * 100)}% of every win as commission, yet at ${formatEdge(houseEdge('banker', rules))} it still beats Player (${formatEdge(houseEdge('player', rules))}) because Banker wins more often.`);
     else lines.push(`Super 6 Banker pays half on a winning 6; that costs more than a 5% commission would, so its edge is ${formatEdge(houseEdge('banker', rules))}.`);
   }
-  if (has('player') && !has('banker')) lines.push(`Player loses slightly more often than Banker wins, so even with no commission its edge (${formatEdge(houseEdge('player', rules))}) is a little higher than Banker's.`);
+  if (has('player') && !has('banker')) {
+    lines.push(
+      `Player wins fewer hands than Banker (${formatPercent(exactProbabilities(rules.decks).player)} against ${formatPercent(exactProbabilities(rules.decks).banker)}), so even at even money with no commission its edge (${formatEdge(houseEdge('player', rules))}) is a little higher than Banker's (${formatEdge(houseEdge('banker', rules))}).`,
+    );
+  }
   if (has('tie')) lines.push(`Tie at ${ratio(rules.tiePays)} is the worst of the main bets: a tie comes once every 10.5 hands but pays as if it were rarer.`);
   if (has('dragon7') || has('panda8') || has('playerPair') || has('bankerPair')) {
     lines.push('Side bets are the most expensive bets on the layout: 7–11% per bet. They are fun, but they are never a better deal than Banker.');

@@ -25,6 +25,13 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 }
 
+/** Buttons and links handle Space/Enter themselves (a spot or chip reached with Tab must stay activatable). */
+export function isActivatableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY' || target.getAttribute('role') === 'button';
+}
+
 export function isModalOpen(): boolean {
   return typeof document !== 'undefined' && document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
 }
@@ -52,6 +59,7 @@ export function useShortcuts(handlers: ShortcutHandlers, enabled = true): void {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       const action = shortcutFor(e.key);
       if (!action) return;
+      if (action.type === 'deal' && isActivatableTarget(e.target)) return; // Space activates the focused control
       if (e.repeat && action.type !== 'bet') return;
       e.preventDefault();
       const h = ref.current;

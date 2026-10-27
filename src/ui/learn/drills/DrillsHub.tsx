@@ -120,6 +120,7 @@ export function DrillsHub({ initialDrill = null, seed, className, onOpenChange }
                 </div>
               </div>
               <p className={styles.blurb}>{d.blurb}</p>
+              <p className={styles.keysHint}>Keys: {d.keys}</p>
               <div className={styles.scoreRow} role="group" aria-label={`${d.title} saved score`}>
                 <div className={cx(styles.stat, styles.statGold)}>
                   <span className={styles.statLabel}>Correct</span>

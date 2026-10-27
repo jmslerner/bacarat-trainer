@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cardLabel, createRng } from '@/engine';
-import { Button, PlayingCard, Select, Toggle, cx, useIsPhone, useSound } from '@/ui/shell';
+import { Button, PlayingCard, Select, Toggle, cx, useIsPhone, useSettings, useSound } from '@/ui/shell';
 import {
   COUNT_LENGTHS,
   COUNT_PACES,
@@ -13,6 +13,7 @@ import {
   cardTagOf,
   countSystemById,
   cumulativeCounts,
+  decksLeft,
   formatCount,
   generateCountingCards,
   paceMs,
@@ -22,6 +23,7 @@ import {
   trueCountEstimate,
   valueLabel,
   type CountPaceId,
+  type DrillCountSystemId,
 } from './counting';
 import styles from './drills.module.css';
 import { recordDrillAnswer } from './scores';
@@ -34,7 +36,7 @@ type Phase = 'setup' | 'running' | 'answer' | 'done';
 
 export interface CountingDrillProps extends DrillProps {
   /** Initial count system (default Dragon 7). */
-  system?: 'dragon7' | 'panda8';
+  system?: DrillCountSystemId;
   /** Initial pace (default 'normal'). */
   pace?: CountPaceId;
   /** Initial number of cards (default 16). */
@@ -46,7 +48,9 @@ function tagClass(tag: number): string {
 }
 
 export function CountingDrill({ seed, onBack, className, system: initialSystem = 'dragon7', pace: initialPace = 'normal', cards: initialCards = 16 }: CountingDrillProps): JSX.Element {
-  const [systemId, setSystemId] = useState<'dragon7' | 'panda8'>(initialSystem);
+  const { rules } = useSettings();
+  const decks = rules.decks;
+  const [systemId, setSystemId] = useState<DrillCountSystemId>(initialSystem);
   const [paceId, setPaceId] = useState<CountPaceId>(initialPace);
   const [length, setLength] = useState<number>(COUNT_LENGTHS.includes(initialCards) ? initialCards : 16);
   const [assist, setAssist] = useState(false);
@@ -57,24 +61,27 @@ export function CountingDrill({ seed, onBack, className, system: initialSystem =
   const [correct, setCorrect] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const startRef = useRef<HTMLButtonElement>(null);
+  /** Seed of the last deal that was started: starting again from the setup screen must deal fresh cards. */
+  const usedSeedRef = useRef<number | null>(null);
   const phone = useIsPhone();
   const { play } = useSound();
 
   const series = useQuestionSeries(seed);
   const system = countSystemById(systemId);
-  const cards = useMemo(() => generateCountingCards(createRng(series.currentSeed), length), [series.currentSeed, length]);
+  const cards = useMemo(() => generateCountingCards(createRng(series.currentSeed), length, decks), [series.currentSeed, length, decks]);
   const expected = useMemo(() => runningCountOf(cards, system), [cards, system]);
   const running = useMemo(() => cumulativeCounts(cards, system), [cards, system]);
 
   // Flash the cards: one timer per card, cleared on stop/unmount.
   useEffect(() => {
     if (phase !== 'running') return;
+    usedSeedRef.current = series.currentSeed;
     const timer = window.setTimeout(() => {
       if (shown + 1 < cards.length) setShown(shown + 1);
       else setPhase('answer');
     }, paceMs(paceId));
     return () => window.clearTimeout(timer);
-  }, [phase, shown, cards.length, paceId]);
+  }, [phase, shown, cards.length, paceId, series.currentSeed]);
 
   useEffect(() => {
     if (phase === 'running') play('flip');
@@ -86,11 +93,13 @@ export function CountingDrill({ seed, onBack, className, system: initialSystem =
   }, [phase]);
 
   const start = useCallback(() => {
+    // The current question was already dealt (stopped or answered): move on so the cards are new.
+    if (usedSeedRef.current === series.currentSeed) series.next();
     setText('');
     setEntered(null);
     setShown(0);
     setPhase('running');
-  }, []);
+  }, [series]);
   const stop = useCallback(() => {
     setPhase('setup');
     setShown(0);
@@ -137,7 +146,8 @@ export function CountingDrill({ seed, onBack, className, system: initialSystem =
     return false;
   });
 
-  const trueCount = trueCountEstimate(expected, cards.length);
+  const trueCount = trueCountEstimate(expected, cards.length, decks);
+  const remainingDecks = decksLeft(cards.length, decks);
   const headline = `Running count: ${formatCount(expected)}`;
   const favourable = trueCount >= system.threshold;
   const current = cards[Math.min(shown, cards.length - 1)];
@@ -155,7 +165,7 @@ export function CountingDrill({ seed, onBack, className, system: initialSystem =
           {phase === 'setup' && (
             <>
               <div className={styles.controls}>
-                <Select<'dragon7' | 'panda8'>
+                <Select<DrillCountSystemId>
                   label="Count system"
                   value={systemId}
                   onChange={setSystemId}
@@ -274,9 +284,14 @@ export function CountingDrill({ seed, onBack, className, system: initialSystem =
               You entered {formatCount(entered)}; the cards add up to {formatCount(expected)} (you were off by {Math.abs(entered - expected)}).
             </p>
           )}
-          <p className={styles.reason}>
-            Each card’s tag is shown under it with the running count after that card. {cards.length} cards gone from an 8-deck shoe leaves about {((8 * 52 - cards.length) / 52).toFixed(1)} decks, so the true count is {formatCount(expected)} ÷{' '}
-            {Math.max((8 * 52 - cards.length) / 52, 0.5).toFixed(1)} ≈ <strong>{trueCount >= 0 ? '+' : '−'}{Math.abs(trueCount).toFixed(1)}</strong>.
+          <p className={styles.reason} data-testid="count-true">
+            Each card’s tag is shown under it with the running count after that card. {cards.length} cards gone from {decks === 6 ? 'a 6-deck' : 'an 8-deck'} shoe (your table) leaves about{' '}
+            {remainingDecks.toFixed(1)} decks, so the true count is {formatCount(expected)} ÷ {Math.max(remainingDecks, 0.5).toFixed(1)} ≈{' '}
+            <strong>
+              {trueCount >= 0 ? '+' : '−'}
+              {Math.abs(trueCount).toFixed(1)}
+            </strong>
+            .
           </p>
           <p className={styles.tip}>
             <strong>{favourable ? 'Bet it:' : 'No bet:'}</strong> the {system.id === 'dragon7' ? 'Dragon 7' : 'Panda 8'} is worth betting at a true count of {formatCount(system.threshold)} or more

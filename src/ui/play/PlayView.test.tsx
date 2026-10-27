@@ -119,7 +119,9 @@ describe('PlayView — dealing (instant)', () => {
     // History and scoreboard received the hand.
     expect(within(screen.getByTestId('hand-history')).getAllByRole('listitem')).toHaveLength(1);
     expect(screen.getByText('Hand 1')).toBeTruthy();
-    expect(screen.getByTestId('deal-reason').textContent).toBe('Place a bet to deal');
+    // The table is cleared; the hint points at REBET.
+    expect(screen.getByTestId('deal-reason').textContent).toBe('Rebet (R) to play $50 again, or place chips');
+    expect(dealButton().disabled).toBe(true);
   });
 
   it('REBET restores the previous layout, the keyboard shortcuts work and Space deals', () => {

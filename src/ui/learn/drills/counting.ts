@@ -1,40 +1,30 @@
 /**
  * Counting drill logic (pure).
  *
- * The count systems are defined locally with the `CountSystem` shape of SPEC §5.3 (`{ id, name, description,
- * tags[0..9] by card value, threshold }`): the Dragon 7 tags are Jacobson's from SPEC §3; the Panda 8 tags mirror
- * the set derived in src/strategy (docs/COUNTING.md). Swap these for `DRAGON7_COUNT` / `PANDA8_COUNT` from
- * `@/strategy` once that module's barrel exists.
+ * The count systems ARE the `@/strategy` ones (`DRAGON7_COUNT` = Jacobson's tags from SPEC §3, `PANDA8_COUNT` =
+ * the count derived and validated in docs/COUNTING.md), re-exported with their ids narrowed, and the running /
+ * true counts delegate to the strategy module so the drill, the lessons and the Coach teach exactly one count.
  */
-import { buildDecks, cardValue } from '@/engine';
+import { buildDecks } from '@/engine';
 import type { Card, Rng } from '@/engine';
+import { CARDS_PER_DECK, DRAGON7_COUNT as STRATEGY_DRAGON7_COUNT, PANDA8_COUNT as STRATEGY_PANDA8_COUNT, cardTag, runningCount, trueCount } from '@/strategy';
+import type { CountSystem } from '@/strategy';
 import { shuffled } from './seeds';
 
-export interface DrillCountSystem {
-  id: 'dragon7' | 'panda8';
-  name: string;
-  description: string;
-  /** Tag per card VALUE: index 0 = 10/J/Q/K, 1 = Ace, 2..9. Balanced over the shoe. */
-  tags: number[];
-  /** Bet the side bet when the true count is at or above this. */
-  threshold: number;
+export type DrillCountSystemId = 'dragon7' | 'panda8';
+
+/** A `@/strategy` CountSystem (SPEC §5.3) whose id is one of the two side-bet counts. */
+export interface DrillCountSystem extends CountSystem {
+  id: DrillCountSystemId;
 }
 
-export const DRAGON7_COUNT: DrillCountSystem = Object.freeze({
-  id: 'dragon7',
-  name: 'Dragon 7 count',
-  description: '4, 5, 6 and 7 count −1; 8 and 9 count +2; Ace, 2, 3 and the ten-value cards count 0. Bet the Dragon 7 at a true count of +4 or more.',
-  tags: Object.freeze([0, 0, 0, 0, -1, -1, -1, -1, 2, 2]) as number[],
-  threshold: 4,
-}) as DrillCountSystem;
+function asDrillSystem(system: CountSystem, id: DrillCountSystemId): DrillCountSystem {
+  if (system.id !== id) throw new Error(`@/strategy count system "${system.id}" is not the ${id} count`);
+  return system as DrillCountSystem;
+}
 
-export const PANDA8_COUNT: DrillCountSystem = Object.freeze({
-  id: 'panda8',
-  name: 'Panda 8 count',
-  description: 'Ten-value cards, Ace and 2 count +1; 3 and 8 count −2; 4, 5, 6 and 7 count −1; 9 counts +2. Bet the Panda 8 at a true count of +8 or more.',
-  tags: Object.freeze([1, 1, 1, -2, -1, -1, -1, -1, -2, 2]) as number[],
-  threshold: 8,
-}) as DrillCountSystem;
+export const DRAGON7_COUNT: DrillCountSystem = asDrillSystem(STRATEGY_DRAGON7_COUNT, 'dragon7');
+export const PANDA8_COUNT: DrillCountSystem = asDrillSystem(STRATEGY_PANDA8_COUNT, 'panda8');
 
 export const DRILL_COUNT_SYSTEMS: readonly DrillCountSystem[] = [DRAGON7_COUNT, PANDA8_COUNT];
 
@@ -57,22 +47,22 @@ export function paceMs(id: CountPaceId): number {
 
 export const COUNT_LENGTHS: readonly number[] = [8, 16, 32, 52];
 
-export const CARDS_PER_DECK = 52;
+export { CARDS_PER_DECK };
 
-/** The first `count` cards of a freshly shuffled shoe (no replacement, so the deal is realistic). */
+/** The first `count` cards of a freshly shuffled `decks`-deck shoe (no replacement, so the deal is realistic). */
 export function generateCountingCards(rng: Rng, count: number, decks = 8): Card[] {
   const shoe = shuffled(buildDecks(decks), (n) => rng.nextInt(n));
   return shoe.slice(0, Math.max(0, Math.min(count, shoe.length))).map((c, i) => ({ rank: c.rank, suit: c.suit, id: i }));
 }
 
+/** The tag a card adds to the running count (`@/strategy` cardTag). */
 export function cardTagOf(card: Card, system: DrillCountSystem): number {
-  return system.tags[cardValue(card.rank)];
+  return cardTag(card, system);
 }
 
+/** The running count of the cards (`@/strategy` runningCount). */
 export function runningCountOf(cards: readonly Card[], system: DrillCountSystem): number {
-  let running = 0;
-  for (const c of cards) running += cardTagOf(c, system);
-  return running;
+  return runningCount(cards, system);
 }
 
 /** Running count after each card. */
@@ -80,16 +70,23 @@ export function cumulativeCounts(cards: readonly Card[], system: DrillCountSyste
   const out: number[] = [];
   let running = 0;
   for (const c of cards) {
-    running += cardTagOf(c, system);
+    running += cardTag(c, system);
     out.push(running);
   }
   return out;
 }
 
-/** True count = running ÷ max(decks remaining, 0.5), as the strategy module defines it. */
+/**
+ * True count when `cardsSeen` cards of a `decks`-deck shoe are gone: running ÷ max(decks remaining, 0.5), exactly
+ * as `@/strategy` trueCount defines it.
+ */
 export function trueCountEstimate(running: number, cardsSeen: number, decks = 8): number {
-  const remaining = Math.max(0, decks * CARDS_PER_DECK - cardsSeen) / CARDS_PER_DECK;
-  return running / Math.max(remaining, 0.5);
+  return trueCount(running, Math.max(0, decks * CARDS_PER_DECK - cardsSeen));
+}
+
+/** Decks left in a `decks`-deck shoe after `cardsSeen` cards (not floored; for the feedback arithmetic). */
+export function decksLeft(cardsSeen: number, decks = 8): number {
+  return Math.max(0, decks * CARDS_PER_DECK - cardsSeen) / CARDS_PER_DECK;
 }
 
 /** "+3", "0", "−2" (unicode minus). */

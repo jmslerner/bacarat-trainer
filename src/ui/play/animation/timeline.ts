@@ -223,10 +223,12 @@ export function buildHandTimeline(input: HandTimelineInput): Frame[] {
   });
   const countSteps = base > 0 ? 10 : 1;
   const countSpan = base * TIMING.bankroll;
+  const wholeDollars = Number.isInteger(bankrollBefore) && Number.isInteger(bankrollAfter);
   for (let i = 1; i <= countSteps; i++) {
     const k = i / countSteps;
     const eased = 1 - (1 - k) * (1 - k);
-    const value = Math.round((bankrollBefore + (bankrollAfter - bankrollBefore) * eased) * 100) / 100;
+    const raw = bankrollBefore + (bankrollAfter - bankrollBefore) * eased;
+    const value = wholeDollars ? Math.round(raw) : Math.round(raw * 100) / 100;
     frames.push({ at: t + countSpan * k, bankroll: i === countSteps ? bankrollAfter : value });
   }
   t += base * TIMING.settle;

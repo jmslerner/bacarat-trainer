@@ -33,13 +33,20 @@ export function bankerDrawValues(bankerTotal: number): number[] {
   return PLAYER_THIRD_VALUES.filter((v) => bankerDraws(bankerTotal, v));
 }
 
+/** "2–7", "6 or 7", "0–5, 8 or 9": runs of three or more consecutive values become ranges. */
 function list(values: readonly number[]): string {
   if (values.length === 0) return 'nothing';
-  if (values.length === 1) return String(values[0]);
-  const sorted = [...values];
-  const contiguous = sorted.every((v, i) => i === 0 || v === sorted[i - 1] + 1);
-  if (contiguous && sorted.length > 2) return `${sorted[0]}–${sorted[sorted.length - 1]}`;
-  return `${sorted.slice(0, -1).join(', ')} or ${sorted[sorted.length - 1]}`;
+  const sorted = [...values].sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length; ) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    if (j - i >= 2) parts.push(`${sorted[i]}–${sorted[j]}`);
+    else for (let k = i; k <= j; k++) parts.push(String(sorted[k]));
+    i = j + 1;
+  }
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(', ')} or ${parts[parts.length - 1]}`;
 }
 
 /** The sentence describing the Banker's rule for a given two-card total after the Player drew. */

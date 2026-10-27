@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import type { BetType, Bets, Card, SessionStats, ShoeInfo, StreakInfo, TableRules } from '@/engine';
 import { BET_LABELS, BET_TYPES, expectedValue, houseEdge, isBetEnabled } from '@/engine';
 import { Stat, Toggle, cx, formatMoney, formatNumber, formatPercent, formatSigned, toneForNet } from '@/ui/shell';
-import { countStates, decksRemaining, DRAGON7_COUNT, PANDA8_COUNT, type CountState, type CountSystem } from '../coach/counts';
+import { countStates, decksRemaining, DRAGON7_COUNT, PANDA8_COUNT, type CountState, type CountSystem } from '@/strategy';
 import styles from './Panels.module.css';
 
 export interface CoachPanelProps {

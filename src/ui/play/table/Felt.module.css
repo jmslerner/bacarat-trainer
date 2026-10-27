@@ -177,12 +177,19 @@
   animation: tagIn var(--dur-med) var(--ease-spring) both;
 }
 
-/* phone: one row per side */
-.feltPhone .hand { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 6px 8px; }
-.feltPhone .handHeader { flex-direction: column; align-items: flex-start; gap: 4px; min-width: 64px; }
-.feltPhone .handName { font-size: var(--text-md); letter-spacing: 0.14em; padding-left: 0; }
-.feltPhone .cards { flex: 1; justify-content: flex-start; }
-.feltPhone .totalWrap { flex-direction: column; gap: 2px; margin-left: auto; }
+/* phone: the name across the top, cards and total in a row under it */
+.feltPhone .hand {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'head head' 'cards total';
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 10px 8px;
+}
+.feltPhone .handHeader { grid-area: head; justify-content: flex-start; gap: 8px; min-height: 22px; }
+.feltPhone .handName { font-size: var(--text-md); letter-spacing: 0.16em; padding-left: 0; }
+.feltPhone .cards { grid-area: cards; justify-content: flex-start; min-width: 0; }
+.feltPhone .totalWrap { grid-area: total; flex-direction: column; gap: 2px; min-height: 0; }
 .feltPhone .total { font-size: var(--text-lg); min-width: 40px; padding: 1px 10px; }
 
 /* ---- shoe ------------------------------------------------------------------ */
@@ -446,7 +453,8 @@
 .spot:disabled { cursor: default; }
 .spotClosed { opacity: 0.92; }
 .spotActive { background-color: rgba(var(--spot-rgb), 0.09); box-shadow: 0 0 0 1px rgba(var(--spot-rgb), 0.3); }
-.spotCompact { min-height: 100px; padding: 6px 4px 8px; border-radius: 12px; }
+.spotCompact { min-height: 100px; padding: 11px 4px 8px; border-radius: 12px; }
+.spotCompact .resultBadge { top: -9px; right: 50%; transform: translateX(50%); padding: 1px 7px; font-size: 0.52rem; letter-spacing: 0.14em; }
 
 .tone-player { --spot: var(--player-light); --spot-rgb: 95, 147, 230; }
 .tone-banker { --spot: var(--banker-light); --spot-rgb: 231, 76, 91; }
@@ -472,7 +480,7 @@
   background: rgba(0, 0, 0, 0.3);
   opacity: 0.8;
 }
-.spotCompact .spotName { font-size: 0.7rem; letter-spacing: 0.1em; }
+.spotCompact .spotName { font-size: 0.64rem; letter-spacing: 0.04em; }
 .spotCompact .spotNameLong { display: none; }
 .spotCompact .spotNameShort { display: block; }
 .spotCompact .spotPays { font-size: 0.56rem; letter-spacing: 0.06em; }

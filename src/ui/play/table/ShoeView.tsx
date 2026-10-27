@@ -20,8 +20,9 @@ export const ShoeView = forwardRef<HTMLDivElement, ShoeViewProps>(function ShoeV
   const dealtPct = Math.min(100, Math.max(0, (shoe.cardsDealt / total) * 100));
   const cutPct = Math.min(100, Math.max(0, ((total - rules.cutCardFromEnd) / total) * 100));
   const shuffling = shuffle !== null && shuffle.stage !== 'burn';
-  const burnCard = shuffle?.stage === 'burn' ? shuffle.card : shoe.exposedBurnCard;
-  const burned = shuffle?.stage === 'burn' ? shuffle.burned : shoe.burnedCount;
+  const burnCard = shuffle ? (shuffle.stage === 'burn' ? shuffle.card : null) : shoe.exposedBurnCard;
+  const burned = shuffle ? (shuffle.stage === 'burn' ? shuffle.burned : 0) : shoe.burnedCount;
+  const cutPlaced = shuffle === null || shuffle.stage !== 'shuffling';
   const remainingText = `${formatNumber(shoe.cardsRemaining)} left`;
   const label = `Shoe ${shoe.shoeNumber}: ${remainingText} of ${shoe.totalCards}${shoe.cutCardReached ? ', cut card out' : ''}`;
 
@@ -32,7 +33,7 @@ export const ShoeView = forwardRef<HTMLDivElement, ShoeViewProps>(function ShoeV
         <span className={styles.shoeDeck} />
         <span className={styles.shoeDeck} />
         <span className={styles.shoeLip} />
-        <span className={styles.shoeCutCard} style={{ left: `${cutPct}%` }} title="Cut card" />
+        {cutPlaced && <span className={styles.shoeCutCard} style={{ left: `${cutPct}%` }} title="Cut card" />}
       </div>
       <div className={styles.shoeText}>
         <span className={styles.shoeTitle}>Shoe {shoe.shoeNumber}</span>
@@ -40,7 +41,7 @@ export const ShoeView = forwardRef<HTMLDivElement, ShoeViewProps>(function ShoeV
       </div>
       <div className={styles.depth} aria-hidden="true">
         <span className={styles.depthFill} style={{ width: `${dealtPct}%` }} />
-        <span className={styles.depthCut} style={{ left: `${cutPct}%` }} />
+        {cutPlaced && <span className={styles.depthCut} style={{ left: `${cutPct}%` }} />}
       </div>
       <div className={styles.shoeFooter}>
         {shoe.cutCardReached && !shuffling ? (
@@ -55,7 +56,7 @@ export const ShoeView = forwardRef<HTMLDivElement, ShoeViewProps>(function ShoeV
             </span>
           </span>
         ) : (
-          <span className={styles.burnText}>{rules.burnProcedure ? 'Burn —' : 'No burn'}</span>
+          <span className={styles.burnText}>{shuffling ? (shuffle.stage === 'shuffling' ? 'Shuffling…' : 'Cut card in') : rules.burnProcedure ? 'Burn —' : 'No burn'}</span>
         )}
       </div>
     </div>

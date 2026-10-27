@@ -30,11 +30,17 @@ export function ThirdCardTable({ bankerTotal = null, playerThird, compact }: Thi
               Banker has
             </th>
             <th scope="col" title="The Player stood on 6 or 7">
-              {compact ? 'P stood' : 'Player stood'}
+              <span className={cx(styles.thFull, compact && styles.thHidden)}>Player stood</span>
+              <span className={cx(styles.thShort, compact && styles.thForce)} aria-hidden="true">
+                P stood
+              </span>
             </th>
             {P3_VALUES.map((v) => (
-              <th key={v} scope="col" title={`Player's third card is a ${v}`}>
-                {compact ? v : `P3 = ${v}`}
+              <th key={v} scope="col" title={`Player's third card is a ${v}`} aria-label={`Player third card ${v}`}>
+                <span className={cx(styles.thFull, compact && styles.thHidden)}>P3 = {v}</span>
+                <span className={cx(styles.thShort, compact && styles.thForce)} aria-hidden="true">
+                  {v}
+                </span>
               </th>
             ))}
           </tr>

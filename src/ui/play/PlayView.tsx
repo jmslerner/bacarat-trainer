@@ -114,6 +114,8 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
 
   // The auto-deal loop is driven by the animation's "done" event (see onEvent), never by render timing.
   const scheduleAutoRef = useRef<(delay: number) => void>(() => undefined);
+  /** Shoe whose new-shoe sequence is still playing (forgotten again if the view unmounts before it ends). */
+  const pendingShuffle = useRef<string | null>(null);
   const onEvent = useCallback(
     (event: FrameEvent, current: CurrentHand | null) => {
       if (event === 'settled' && current) {
@@ -121,7 +123,10 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
         recordHand(current.result, current.settlement, s.totalHands, s.seed);
         setAsk(null);
       }
-      if (event === 'done' && autoRef.current) scheduleAutoRef.current(autoPauseMs(baseRef.current));
+      if (event === 'done') {
+        pendingShuffle.current = null;
+        if (autoRef.current) scheduleAutoRef.current(autoPauseMs(baseRef.current));
+      }
     },
     [session],
   );
@@ -161,7 +166,15 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
     if (rulesChanged) setAutoMode(false);
     if (live.shoe.handsDealt > 0 || isBusy()) return;
     reset(rulesChanged ? 'New rules — place your bets' : 'Place your bets');
+    pendingShuffle.current = key;
     startShuffle(live.shoe, live.rules, baseRef.current);
+    return () => {
+      // Unmounted (or StrictMode's simulated unmount) before the sequence ended: play it again next time.
+      if (pendingShuffle.current === key) {
+        pendingShuffle.current = null;
+        shoesSeen.delete(key);
+      }
+    };
   }, [live.seed, live.shoe, live.rules, reset, startShuffle, isBusy, setAutoMode]);
 
   /* ---- actions ---------------------------------------------------------------------------- */
@@ -388,7 +401,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
               onSelectChip={selectChip}
               bankroll={view.bankroll}
               onLayout={totalOnLayout(live.bets)}
-              dealReason={dealCheck.ok ? null : dealCheck.reason ?? 'Cannot deal'}
+              dealReason={dealCheck.ok ? null : !hasBets && rebetAmount > 0 ? `Rebet (R) to play ${formatMoney(rebetAmount)} again, or place chips` : dealCheck.reason ?? 'Cannot deal'}
               busy={anim.busy}
               phase={anim.phase}
               auto={auto}
@@ -403,6 +416,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
               onUndo={onUndo}
               onNewShoe={onNewShoe}
               onBuyIn={() => setBuyInOpen(true)}
+              onCoach={phone && prefs.showCoach ? () => setDrawerOpen(true) : undefined}
               notice={notice}
               phone={phone}
             />
@@ -431,14 +445,9 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
       </div>
 
       {phone && prefs.showCoach && (
-        <>
-          <Button variant="primary" size="sm" className={styles.coachFab} onClick={() => setDrawerOpen(true)} aria-haspopup="dialog" data-testid="coach-drawer-button">
-            Coach
-          </Button>
-          <Modal open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Coach" size="md">
-            <div className={styles.drawerBody}>{coach}</div>
-          </Modal>
-        </>
+        <Modal open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Coach" size="md">
+          <div className={styles.drawerBody}>{coach}</div>
+        </Modal>
       )}
 
       <SettingsDialog open={buyInOpen} initialTab="bankroll" onClose={() => setBuyInOpen(false)} />

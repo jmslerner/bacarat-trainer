@@ -37,13 +37,15 @@ export interface RailProps {
   onUndo: () => void;
   onNewShoe: () => void;
   onBuyIn: () => void;
+  /** Opens the Coach drawer (phones only). */
+  onCoach?: () => void;
   notice: Notice | null;
   phone: boolean;
 }
 
 const SPEED_OPTIONS = DEAL_SPEEDS.map((s) => ({ value: s.id, label: s.label }));
 
-export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, dealReason, busy, phase, auto, onToggleAuto, speed, onSpeed, rebetAmount, hasBets, onDeal, onRebet, onClear, onUndo, onNewShoe, onBuyIn, notice, phone }: RailProps): ReactNode {
+export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, dealReason, busy, phase, auto, onToggleAuto, speed, onSpeed, rebetAmount, hasBets, onDeal, onRebet, onClear, onUndo, onNewShoe, onBuyIn, onCoach, notice, phone }: RailProps): ReactNode {
   const chips = rules.chipDenominations;
   const canDeal = dealReason === null && !busy;
   const dealLabel = busy ? (phase === 'shuffling' ? 'Skip' : 'Fast forward') : 'Deal';
@@ -83,11 +85,17 @@ export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, de
 
       <div className={styles.controls}>
         <div className={styles.mainControls}>
-          <Tooltip content={busy ? 'Skip the animation (Space)' : dealReason ?? 'Deal the hand (Space)'} placement="top">
-            <Button variant="primary" size={phone ? 'md' : 'lg'} kbd="Space" onClick={onDeal} disabled={!busy && !canDeal} aria-disabled={!busy && !canDeal} className={styles.dealButton} data-testid="deal-button">
+          {phone ? (
+            <Button variant="primary" size="md" kbd="Space" onClick={onDeal} disabled={!busy && !canDeal} aria-disabled={!busy && !canDeal} className={styles.dealButton} data-testid="deal-button">
               {dealLabel}
             </Button>
-          </Tooltip>
+          ) : (
+            <Tooltip content={busy ? 'Skip the animation (Space)' : dealReason ?? 'Deal the hand (Space)'} placement="top">
+              <Button variant="primary" size="lg" kbd="Space" onClick={onDeal} disabled={!busy && !canDeal} aria-disabled={!busy && !canDeal} className={styles.dealButton} data-testid="deal-button">
+                {dealLabel}
+              </Button>
+            </Tooltip>
+          )}
           <Button kbd="R" onClick={onRebet} disabled={busy || rebetAmount <= 0} data-testid="rebet-button" title={rebetAmount > 0 ? `Repeat the last bets (${formatMoney(rebetAmount)})` : 'No previous bets to repeat'}>
             Rebet{rebetAmount > 0 ? ` ${formatMoney(rebetAmount)}` : ''}
           </Button>
@@ -109,6 +117,11 @@ export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, de
           <Button size="sm" variant="ghost" onClick={onBuyIn} data-testid="buy-in-button">
             Buy-in
           </Button>
+          {onCoach && (
+            <Button size="sm" variant="secondary" onClick={onCoach} aria-haspopup="dialog" data-testid="coach-drawer-button">
+              Coach
+            </Button>
+          )}
         </div>
       </div>
 

@@ -154,8 +154,9 @@ export function CountingLesson(): ReactNode {
               high counts to stop playing it, or to leave.
             </li>
             <li>
-              <strong>Compare it with everything else in this course:</strong> it is the only idea here that moves the number in your favour, and it
-              moves it by a few dollars an hour at a {formatMoney(sideMax)} maximum. Treat it as a fascinating edge case, not a living.
+              <strong>Compare it with everything else in this course:</strong> it is the only idea here that moves the number in your favour. On the
+              simulated figures above it is worth about {formatMoney(Math.round(bothHourly))} an hour at a {formatMoney(sideMax)} maximum — before the
+              swings, the hours spent waiting for a high count, and the casino’s countermeasures. Treat it as a fascinating edge, not a living.
             </li>
           </ul>
         </Prose>
