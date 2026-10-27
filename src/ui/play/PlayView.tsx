@@ -5,9 +5,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { BetType, Bets, Side } from '@/engine';
-import { BET_TYPES, totalOnLayout, type ChipPlacement } from '@/engine';
+import { BET_TYPES, roundCents, totalOnLayout, type ChipPlacement, type GameSession } from '@/engine';
 import { Scoreboard } from '@/roads';
-import { Button, Modal, SettingsDialog, cx, dealSpeedMs, formatMoney, ruleSummary, useIsPhone, useIsTablet, useSession, useSettings, useSound, type DealSpeed } from '@/ui/shell';
+import { Button, Modal, SettingsDialog, cx, dealSpeedMs, formatMoney, publishDisplayedBankroll, ruleSummary, useIsPhone, useIsTablet, useSession, useSettings, useSound, type DealSpeed } from '@/ui/shell';
 import { autoPauseMs, dealDurationMs, type ChipStacks } from './animation/timeline';
 import type { FrameEvent } from './animation/types';
 import { deriveView, useTableAnimation, type CurrentHand } from './animation/useTableAnimation';
@@ -25,8 +25,19 @@ export interface PlayViewProps {
   className?: string;
 }
 
-/** Shoes whose shuffle / cut card / burn sequence has been shown (keyed by seed and shoe number). */
-const shoesSeen = new Set<string>();
+/**
+ * Shoes whose shuffle / cut card / burn sequence has been shown, per session (keyed by seed and shoe number), so
+ * leaving for Learn and coming back does not replay it while a replaced session starts afresh.
+ */
+const shoesSeenBySession = new WeakMap<GameSession, Set<string>>();
+function shoesSeenOf(session: GameSession): Set<string> {
+  let set = shoesSeenBySession.get(session);
+  if (!set) {
+    set = new Set();
+    shoesSeenBySession.set(session, set);
+  }
+  return set;
+}
 
 const NOTICE_MS = 3800;
 
@@ -120,7 +131,8 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
     (event: FrameEvent, current: CurrentHand | null) => {
       if (event === 'settled' && current) {
         const s = session.getState();
-        recordHand(current.result, current.settlement, s.totalHands, s.seed);
+        // Only a hand the session still knows as its last one (a reset mid-animation has none to record).
+        if (s.lastHand !== null && s.lastHand.result === current.result) recordHand(current.result, current.settlement, s.totalHands, s.seed);
         setAsk(null);
       }
       if (event === 'done') {
@@ -139,18 +151,23 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
     if (!anim.held) syncHistory(live);
   }, [live, anim.held]);
 
+  // The top bar's bankroll pill follows the table: the pre-deal figure while a hand plays, then the count-up
+  // (the session itself already holds the settled amount). Back to the live session when the table unmounts.
+  useEffect(() => {
+    publishDisplayedBankroll({ bankroll: view.bankroll, net: roundCents(view.bankroll - view.stats.startingBankroll) });
+  }, [view.bankroll, view.stats.startingBankroll]);
+  useEffect(() => () => publishDisplayedBankroll(null), []);
+
   // A chip that left the tray (rules change) is no longer in hand.
   useEffect(() => {
     if (!live.rules.chipDenominations.includes(selectedChip)) setSelectedChip(defaultChip(live.rules.chipDenominations, live.rules.limits.main.min));
   }, [live.rules, selectedChip]);
 
-  // A replaced session clears the felt.
-  const firstRun = useRef(true);
+  // A replaced session clears the felt (keyed by identity so StrictMode's re-run of the effect is a no-op).
+  const seenSession = useRef(session);
   useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false;
-      return;
-    }
+    if (seenSession.current === session) return;
+    seenSession.current = session;
     reset();
     setAutoMode(false);
   }, [session, reset, setAutoMode]);
@@ -161,9 +178,15 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
     const rulesChanged = prevRules.current !== live.rules;
     prevRules.current = live.rules;
     const key = `${live.seed}:${live.shoe.shoeNumber}`;
+    const shoesSeen = shoesSeenOf(session);
     if (shoesSeen.has(key)) return;
     shoesSeen.add(key);
-    if (rulesChanged) setAutoMode(false);
+    if (rulesChanged) {
+      setAutoMode(false);
+      // A hand (or shuffle) still playing belongs to the old shoe: fast-forward it so its settlement is shown and
+      // recorded, then shuffle the new shoe.
+      if (isBusy()) skip();
+    }
     if (live.shoe.handsDealt > 0 || isBusy()) return;
     reset(rulesChanged ? 'New rules — place your bets' : 'Place your bets');
     pendingShuffle.current = key;
@@ -175,7 +198,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
         shoesSeen.delete(key);
       }
     };
-  }, [live.seed, live.shoe, live.rules, reset, startShuffle, isBusy, setAutoMode]);
+  }, [session, live.seed, live.shoe, live.rules, reset, startShuffle, isBusy, skip, setAutoMode]);
 
   /* ---- actions ---------------------------------------------------------------------------- */
 
@@ -189,7 +212,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
     const stacks = groupStacks(session.getChipStack());
     const { result, settlement, newShoeStarted } = session.deal();
     const after = session.getState();
-    if (newShoeStarted) shoesSeen.add(`${after.seed}:${after.shoe.shoeNumber}`);
+    if (newShoeStarted) shoesSeenOf(session).add(`${after.seed}:${after.shoe.shoeNumber}`);
     setNotice(null);
     startHand({ prev, stacks, result, settlement, newShoe: newShoeStarted ? after.shoe : null, bankrollAfter: after.bankroll, base: baseRef.current, tips: tipsRef.current });
     return true;
@@ -220,17 +243,19 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
 
   const onDeal = useCallback(() => {
     if (isBusy()) {
+      // Fast-forward. A hand still being dealt is only skipped; once it is settled (or a shuffle is playing) and
+      // chips are on the layout, the next hand follows at once — never a "place a bet" complaint for a skip.
       const handOver = anim.settled || anim.phase === 'settled' || anim.phase === 'shuffling';
       skip();
-      if (!handOver) return;
+      if (!handOver || !session.canDeal().ok) return;
     }
     startDeal();
-  }, [isBusy, anim.settled, anim.phase, skip, startDeal]);
+  }, [isBusy, anim.settled, anim.phase, skip, startDeal, session]);
 
   const placeChip = useCallback(
     (bet: BetType) => {
       if (isBusy()) {
-        notify('No more bets — the hand is in play', 'info');
+        notify(anim.phase === 'shuffling' ? 'One moment — the shoe is being shuffled' : 'No more bets — the hand is in play', 'info');
         return;
       }
       stopAuto('Auto-deal stopped');
@@ -243,7 +268,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
       setNotice(null);
       sound.play('chip');
     },
-    [isBusy, session, sound, dismissLayout, notify, stopAuto],
+    [isBusy, anim.phase, session, sound, dismissLayout, notify, stopAuto],
   );
 
   const removeChip = useCallback(
@@ -326,7 +351,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
     stopAuto();
     session.newShoe();
     const s = session.getState();
-    shoesSeen.add(`${s.seed}:${s.shoe.shoeNumber}`);
+    shoesSeenOf(session).add(`${s.seed}:${s.shoe.shoeNumber}`);
     reset();
     startShuffle(s.shoe, s.rules, baseRef.current);
   }, [isBusy, session, reset, startShuffle, stopAuto]);
@@ -423,7 +448,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
           </div>
           {!phone && (
             <p className={styles.shortcuts} aria-label="Keyboard shortcuts">
-              <kbd>1</kbd>–<kbd>6</kbd> chips · <kbd>P</kbd> <kbd>B</kbd> <kbd>T</kbd> Player / Banker / Tie · <kbd>D</kbd> Dragon 7 · <kbd>N</kbd> Panda 8 · <kbd>Space</kbd> deal · <kbd>R</kbd> rebet · <kbd>C</kbd> clear · <kbd>U</kbd> undo · <kbd>A</kbd> auto · right-click or long-press a spot to take a chip back
+              <kbd>1</kbd>–<kbd>6</kbd> chips · <kbd>P</kbd> <kbd>B</kbd> <kbd>T</kbd> Player / Banker / Tie · <kbd>D</kbd> Dragon 7 · <kbd>N</kbd> Panda 8 · <kbd>Space</kbd> deal · <kbd>R</kbd> rebet · <kbd>C</kbd> clear · <kbd>U</kbd> undo · <kbd>A</kbd> auto · right-click or long-press a spot to take a chip back · <kbd>Tab</kbd> + <kbd>Enter</kbd> presses any control
             </p>
           )}
         </div>

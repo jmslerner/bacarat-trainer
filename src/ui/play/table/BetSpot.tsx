@@ -3,7 +3,7 @@
  * the last chip back. While a hand is settled the spot shows the result: payout chips on a winner, a PUSH badge,
  * losing chips swept to the dealer.
  */
-import { useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useCallback, useRef, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import type { BetLimits, BetType } from '@/engine';
 import { ChipStack, cx, formatMoney } from '@/ui/shell';
 import type { SpotDisplay } from '../animation/types';
@@ -32,10 +32,13 @@ export interface BetSpotProps {
 }
 
 const LONG_PRESS_MS = 520;
+/** A context menu this soon after a touch press is the one the browser synthesizes for the long press itself. */
+const TOUCH_CONTEXT_MENU_MS = 1500;
 
 export function BetSpot({ def, payout, note, chips, amount, display, settling, betting, selectedChip, limits, denominations, chipSize, compact, onAdd, onRemove }: BetSpotProps): ReactNode {
   const pressTimer = useRef<number | null>(null);
   const suppressClick = useRef(false);
+  const touchPressAt = useRef<number | null>(null);
 
   const clearPress = useCallback(() => {
     if (pressTimer.current !== null) {
@@ -44,15 +47,35 @@ export function BetSpot({ def, payout, note, chips, amount, display, settling, b
     }
   }, []);
 
+  // Long press = take a chip back, for touch and pen (a mouse has the right button for that).
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!betting || e.button !== 0) return;
+      if (!betting || e.button !== 0 || e.pointerType === 'mouse') return;
+      touchPressAt.current = Date.now();
       clearPress();
       pressTimer.current = window.setTimeout(() => {
         pressTimer.current = null;
         suppressClick.current = true;
         onRemove(def.bet);
       }, LONG_PRESS_MS);
+    },
+    [betting, clearPress, def.bet, onRemove],
+  );
+
+  const onContextMenu = useCallback(
+    (e: ReactMouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      if (!betting) return;
+      if (touchPressAt.current !== null && Date.now() - touchPressAt.current < TOUCH_CONTEXT_MENU_MS) {
+        // Android fires contextmenu for a touch long press: take exactly one chip, whichever event comes first.
+        if (pressTimer.current !== null) {
+          clearPress();
+          suppressClick.current = true;
+          onRemove(def.bet);
+        }
+        return;
+      }
+      onRemove(def.bet);
     },
     [betting, clearPress, def.bet, onRemove],
   );
@@ -88,10 +111,7 @@ export function BetSpot({ def, payout, note, chips, amount, display, settling, b
       aria-label={ariaLabel}
       title={betting ? `${def.label} · ${payout}${note ? ` · ${note}` : ''} · min ${formatMoney(limits.min)}, max ${formatMoney(limits.max)}` : undefined}
       onClick={onClick}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        if (betting) onRemove(def.bet);
-      }}
+      onContextMenu={onContextMenu}
       onPointerDown={onPointerDown}
       onPointerUp={clearPress}
       onPointerLeave={clearPress}

@@ -5,12 +5,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { describeStrategy } from '@/strategy';
 import type { SimResult } from '@/strategy';
-import { ruleSummary, useSettings } from '@/ui/shell';
+import { cx, ruleSummary, useHashRoute, useSettings } from '@/ui/shell';
 import { ConfigForm } from './components/ConfigForm';
 import { ResultsPanel } from './components/ResultsPanel';
 import { ProgressPanel, RunBar } from './components/RunPanels';
 import { SavedRunsTable } from './components/SavedRunsTable';
-import { defaultLabConfig, resolveRules, sanitizeLabConfig, validateLabConfig, type LabConfig } from './config';
+import { applyLabPreset, defaultLabConfig, labPresetFromHash, resolveRules, sanitizeLabConfig, validateLabConfig, type LabConfig } from './config';
 import { expectedEdge } from './edge';
 import { MAX_SAVED_RUNS, clearRuns, removeRun, saveRun, summarizeResult, useSavedRuns, type SavedRun } from './savedRuns';
 import { useSimulationRunner } from './useSimulationRunner';
@@ -23,12 +23,21 @@ export interface LabViewProps {
 
 export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
   const { rules: currentRules, buyIn } = useSettings();
+  const route = useHashRoute();
   const [config, setConfig] = useState<LabConfig>(() => ({ ...defaultLabConfig({ bankroll: buyIn }), ...initialConfig }));
+  // `#lab/<presetId>` (the lessons' "Lab preset" links) applies that preset; `#lab` leaves the form alone.
+  const hashPreset = useMemo(() => labPresetFromHash(route.hash), [route.hash]);
+  useEffect(() => {
+    if (hashPreset) setConfig((c) => applyLabPreset(c, hashPreset));
+  }, [hashPreset]);
   const runner = useSimulationRunner();
   const savedRuns = useSavedRuns();
   /** The result whose saved copy is in the table (so "Save" cannot store the same result twice). */
   const [savedResult, setSavedResult] = useState<SimResult | null>(null);
-  const formAtRun = useRef<LabConfig>(config);
+  /** The form of the run in progress (or the last attempt). */
+  const pendingForm = useRef<LabConfig>(config);
+  /** The form that produced `runner.state.result`: a cancelled or failed re-run must not replace it. */
+  const resultForm = useRef<LabConfig>(config);
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const previousStatus = useRef(runner.state.status);
@@ -43,15 +52,17 @@ export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
 
   const run = useCallback(() => {
     if (validation.errors.length > 0) return;
-    formAtRun.current = config;
+    pendingForm.current = config;
     runner.run(validation.sim);
   }, [config, runner, validation]);
 
-  // On a stacked layout, bring the fresh results into view once a run completes.
+  // A run just completed: remember the form that produced the result on screen and, on a stacked layout,
+  // bring the fresh results into view.
   useEffect(() => {
     const was = previousStatus.current;
     previousStatus.current = runner.state.status;
     if (was !== 'running' || runner.state.status !== 'done') return;
+    resultForm.current = pendingForm.current;
     const el = resultsRef.current;
     if (el && typeof el.scrollIntoView === 'function' && typeof window !== 'undefined' && window.innerWidth <= 1100) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -63,7 +74,7 @@ export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
     saveRun({
       name: describeStrategy(result.config.strategy),
       rulesSummary: ruleSummary(result.config.rules),
-      form: formAtRun.current,
+      form: resultForm.current,
       summary: summarizeResult(result, expectedEdge(result)),
     });
     setSavedResult(result);
@@ -101,7 +112,7 @@ export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
               <h2 className={styles.cardTitle}>Strategy</h2>
               <p className={styles.cardSub}>Everything a seat at the table decides</p>
             </div>
-            <ConfigForm config={config} rules={rules} currentRules={currentRules} disabled={running} onChange={update} onReplace={replace} />
+            <ConfigForm config={config} rules={rules} disabled={running} onChange={update} onReplace={replace} />
             <RunBar running={running} errors={validation.errors} warnings={validation.warnings} hands={validation.hands} onRun={run} onCancel={runner.cancel} />
           </div>
         </div>
@@ -112,7 +123,7 @@ export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
             <ResultsPanel result={result} stale={running} saved={savedResult === result} savedCount={savedRuns.length} maxSaved={MAX_SAVED_RUNS} onSave={save} />
           ) : (
             !running && (
-              <div className={cxWelcome()} data-testid="lab-welcome">
+              <div className={cx(styles.card, styles.welcome)} data-testid="lab-welcome">
                 <h2 className={styles.cardTitle}>What the Lab shows</h2>
                 <ol className={styles.welcomeList}>
                   <li>
@@ -136,8 +147,4 @@ export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
       </div>
     </div>
   );
-}
-
-function cxWelcome(): string {
-  return `${styles.card} ${styles.welcome}`;
 }

@@ -5,8 +5,13 @@
  * engine deal, and then animates the returned `HandResult.steps` and settlement from a timeline while the previous
  * snapshot is "held": roads, bankroll, shoe and stats only move to the live state when the playback reaches the
  * settlement (`deriveView`).
+ *
+ * The animation state lives in a small external store read with `useSyncExternalStore`, like the session itself.
+ * With a `useReducer` the two could tear: an update from a timer (auto-deal) lands in a different React lane than
+ * the session store's, so one render saw the settled session with nothing held — the result leaked to the roads
+ * and the history before a card was dealt.
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { Bets, Card, HandResult, HandSettlement, SessionState, SessionStats, ShoeInfo, TableRules } from '@/engine';
 import type { SoundName } from '@/ui/shell';
 import { FrameRunner } from './runner';
@@ -37,7 +42,7 @@ export interface AnimState {
   announce: string;
 }
 
-type Action =
+export type AnimAction =
   | { type: 'begin'; held: SessionState | null; current: CurrentHand | null }
   | { type: 'frame'; frame: Frame }
   | { type: 'done' }
@@ -59,7 +64,7 @@ export function initialAnimState(message = 'Place your bets'): AnimState {
   };
 }
 
-export function animReducer(state: AnimState, action: Action): AnimState {
+export function animReducer(state: AnimState, action: AnimAction): AnimState {
   switch (action.type) {
     case 'begin':
       return { ...state, held: action.held, current: action.current, settled: false, running: true, announce: '' };
@@ -83,6 +88,32 @@ export function animReducer(state: AnimState, action: Action): AnimState {
     case 'reset':
       return initialAnimState(action.message);
   }
+}
+
+/** The animation state as an external store (one per table), so React reads it in step with the session store. */
+export class AnimStore {
+  private state: AnimState;
+  private readonly listeners = new Set<() => void>();
+
+  constructor(initial: AnimState = initialAnimState()) {
+    this.state = initial;
+  }
+
+  readonly get = (): AnimState => this.state;
+
+  readonly subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  readonly dispatch = (action: AnimAction): void => {
+    const next = animReducer(this.state, action);
+    if (next === this.state) return;
+    this.state = next;
+    for (const listener of this.listeners) listener();
+  };
 }
 
 export interface StartHandInput {
@@ -117,7 +148,10 @@ export interface UseTableAnimationOptions {
 }
 
 export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): TableAnimation {
-  const [state, dispatch] = useReducer(animReducer, undefined, () => initialAnimState());
+  const storeRef = useRef<AnimStore | null>(null);
+  if (storeRef.current === null) storeRef.current = new AnimStore();
+  const store = storeRef.current;
+  const state = useSyncExternalStore(store.subscribe, store.get, store.get);
   const playRef = useRef(play);
   const onEventRef = useRef(onEvent);
   const currentRef = useRef<CurrentHand | null>(null);
@@ -129,13 +163,13 @@ export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): 
   if (runnerRef.current === null) {
     runnerRef.current = new FrameRunner({
       apply: (frame, instant) => {
-        dispatch({ type: 'frame', frame });
+        store.dispatch({ type: 'frame', frame });
         if (frame.sound && (!instant || frame.keySound)) playRef.current(frame.sound);
         if (frame.event === 'settled') onEventRef.current?.(frame.event, currentRef.current);
       },
       onDone: () => {
         busyRef.current = false;
-        dispatch({ type: 'done' });
+        store.dispatch({ type: 'done' });
         onEventRef.current?.('done', currentRef.current);
       },
     });
@@ -146,9 +180,9 @@ export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): 
     () => () => {
       runner.cancel();
       busyRef.current = false;
-      dispatch({ type: 'reset', message: 'Place your bets' });
+      store.dispatch({ type: 'reset', message: 'Place your bets' });
     },
-    [runner],
+    [runner, store],
   );
 
   const skip = useCallback(() => runner.skip(), [runner]);
@@ -160,7 +194,7 @@ export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): 
       const current: CurrentHand = { result: input.result, settlement: input.settlement, newShoe: input.newShoe };
       currentRef.current = current;
       busyRef.current = true;
-      dispatch({ type: 'begin', held: input.prev, current });
+      store.dispatch({ type: 'begin', held: input.prev, current });
       runner.start(
         buildHandTimeline({
           result: input.result,
@@ -176,7 +210,7 @@ export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): 
         }),
       );
     },
-    [runner],
+    [runner, store],
   );
 
   const startShuffle = useCallback(
@@ -184,21 +218,21 @@ export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): 
       runner.skip();
       currentRef.current = null;
       busyRef.current = true;
-      dispatch({ type: 'begin', held: null, current: null });
+      store.dispatch({ type: 'begin', held: null, current: null });
       runner.start(buildShuffleTimeline(shoe, rules, base));
     },
-    [runner],
+    [runner, store],
   );
 
-  const dismissLayout = useCallback(() => dispatch({ type: 'dismissLayout' }), []);
+  const dismissLayout = useCallback(() => store.dispatch({ type: 'dismissLayout' }), [store]);
   const reset = useCallback(
     (message = 'Place your bets') => {
       runner.cancel();
       busyRef.current = false;
       currentRef.current = null;
-      dispatch({ type: 'reset', message });
+      store.dispatch({ type: 'reset', message });
     },
-    [runner],
+    [runner, store],
   );
 
   return useMemo(

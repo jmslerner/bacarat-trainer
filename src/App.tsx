@@ -1,25 +1,21 @@
-import type { ComponentType } from 'react';
-import { AppShell, LabPlaceholder, LearnPlaceholder, PlayPlaceholder, Providers, type Mode } from '@/ui/shell';
+import { lazy, type ComponentType } from 'react';
+import { AppShell, Providers, type Mode } from '@/ui/shell';
+import { PlayView } from '@/ui/play';
 
-// ─────────────────────────────────────────────────────────────────────────────────────────
-// INTEGRATION POINT — the views map.
-// Replace each placeholder with the real view when its module lands, e.g.
-//
-//   import { PlayView } from '@/ui/play';
-//   import { LearnView } from '@/ui/learn';
-//   import { LabView } from '@/ui/lab';
-//   const VIEWS: ViewsMap = { play: PlayView, learn: LearnView, lab: LabView };
-//
-// Code-splitting works too (the shell renders views inside <Suspense>):
-//   const LabView = lazy(() => import('@/ui/lab').then((m) => ({ default: m.LabView })));
-//
-// Views take no props: they read the route (mode / lessonId) with `useHashRoute()` and the
-// game with `useSession()` / `useSettings()` from '@/ui/shell'.
-// ─────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * The views map, one component per mode. Views take no props: they read the route (mode / lessonId) with
+ * `useHashRoute()` and the game with `useSession()` / `useSettings()` from '@/ui/shell'.
+ *
+ * Play is the default view and loads eagerly; Learn (lessons + drills) and the Strategy Lab are code-split
+ * and load on first visit (the shell renders every view inside <Suspense> and an ErrorBoundary).
+ */
+const LearnView = lazy(() => import('@/ui/learn').then((m) => ({ default: m.LearnView })));
+const LabView = lazy(() => import('@/ui/lab').then((m) => ({ default: m.LabView })));
+
 export const VIEWS: Readonly<Record<Mode, ComponentType>> = {
-  play: PlayPlaceholder,
-  learn: LearnPlaceholder,
-  lab: LabPlaceholder,
+  play: PlayView,
+  learn: LearnView,
+  lab: LabView,
 };
 
 export default function App(): JSX.Element {

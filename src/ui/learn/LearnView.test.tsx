@@ -66,6 +66,22 @@ describe('LearnView', () => {
     await waitFor(() => expect(screen.queryByText(/loading drills/i)).not.toBeInTheDocument(), { timeout: 15000 });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(document.querySelector('[data-drills-unavailable]')).not.toBeInTheDocument();
+    expect(document.title).toContain('Drills');
+  }, 30000);
+
+  it('links each lesson footer to its own drill under #learn/drills/<id>', async () => {
+    render(<LearnView />);
+    setHash('#learn/third-card');
+    await screen.findByRole('heading', { level: 1, name: /third-card rules/i }, { timeout: 15000 });
+    expect(document.querySelector('[data-lesson-drill]')).toHaveAttribute('href', '#learn/drills/third-card');
+    setHash('#learn/basics');
+    await screen.findByRole('heading', { level: 1, name: /the basics/i }, { timeout: 15000 });
+    expect(document.querySelector('[data-lesson-drill]')).not.toBeInTheDocument();
+    // The drills route also serves the deep link (the hub reads the third segment itself).
+    setHash('#learn/drills/third-card');
+    await waitFor(() => expect(screen.queryByText(/loading drills/i)).not.toBeInTheDocument(), { timeout: 15000 });
+    expect(screen.getByRole('navigation', { name: /lessons/i }).querySelector('[data-lesson-link="drills"]')).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   }, 30000);
 
   it('links to the previous and next lessons from the footer', async () => {

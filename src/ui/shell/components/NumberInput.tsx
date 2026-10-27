@@ -2,7 +2,7 @@
  * NumberInput — a text field for numbers (money, odds, counts) with ±steppers, min/max
  * clamping on blur, thousands grouping when idle and free typing while focused.
  */
-import { useEffect, useId, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { cx } from '../cx';
 import { Field } from './Field';
 import fieldStyles from './Field.module.css';
@@ -68,11 +68,26 @@ export function NumberInput({ label, value, onChange, min, max, step = 1, decima
   const errorId = `${auto}-err`;
   const [focused, setFocused] = useState(false);
   const [text, setText] = useState(() => idle(value, decimals));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const reselect = useRef(false);
 
   // Follow external value changes while not editing.
   useEffect(() => {
     if (!focused) setText(idle(value, decimals));
   }, [value, decimals, focused]);
+
+  // Focusing swaps the grouped text ("1,000") for the raw number ("1000"); React commits that swap after the
+  // focus event, which would collapse the select-all a Tab focus (or an automated fill) just made and turn the
+  // next keystroke into an append. Select the whole value again as soon as the swapped text is committed.
+  useLayoutEffect(() => {
+    if (!reselect.current) return;
+    reselect.current = false;
+    try {
+      inputRef.current?.select();
+    } catch {
+      /* ignore */
+    }
+  }, [text]);
 
   const invalid = Boolean(error) || (focused && parse(text) === null && text.trim() !== '');
 
@@ -108,6 +123,7 @@ export function NumberInput({ label, value, onChange, min, max, step = 1, decima
         )}
         {prefix !== undefined && <span className={styles.affix}>{prefix}</span>}
         <input
+          ref={inputRef}
           id={inputId}
           name={name}
           type="text"
@@ -122,8 +138,10 @@ export function NumberInput({ label, value, onChange, min, max, step = 1, decima
           aria-describedby={describedBy}
           aria-label={rest['aria-label']}
           onFocus={() => {
+            const raw = Number.isFinite(value) ? String(value) : '';
+            reselect.current = raw !== text;
             setFocused(true);
-            setText(Number.isFinite(value) ? String(value) : '');
+            setText(raw);
           }}
           onBlur={() => {
             setFocused(false);

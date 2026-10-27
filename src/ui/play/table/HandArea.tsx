@@ -3,8 +3,10 @@
  */
 import type { ReactNode, RefObject } from 'react';
 import type { Card, Outcome, Side } from '@/engine';
-import { PlayingCard, cx, type CardSize } from '@/ui/shell';
+import { CARD_SIZES, PlayingCard, cx, type CardSize } from '@/ui/shell';
+import { fitCardWidth } from './cardFit';
 import { DealtCard } from './DealtCard';
+import { useElementWidth } from './useElementWidth';
 import styles from './Felt.module.css';
 
 export interface HandAreaProps {
@@ -23,6 +25,9 @@ export interface HandAreaProps {
 const NAME: Record<Side, string> = { player: 'Player', banker: 'Banker' };
 
 export function HandArea({ side, cards, total, natural, outcome, bonus, pair, size, dealMs, shoeRef }: HandAreaProps): ReactNode {
+  // The nominal size for the breakpoint, shrunk when the hand area is too narrow for a three-card hand.
+  const [cardsRef, cardsBox] = useElementWidth<HTMLDivElement>();
+  const cardWidth = fitCardWidth(cardsBox.width, cardsBox.gap, CARD_SIZES[size]);
   const won = outcome === side;
   const lost = outcome !== null && outcome !== 'tie' && outcome !== side;
   const tie = outcome === 'tie';
@@ -54,15 +59,15 @@ export function HandArea({ side, cards, total, natural, outcome, bonus, pair, si
           </span>
         )}
       </header>
-      <div className={styles.cards} data-cards={cards.length}>
+      <div ref={cardsRef} className={styles.cards} data-cards={cards.length} data-card-width={cardWidth}>
         {cards.length === 0 ? (
           <>
-            <PlayingCard size={size} label="Empty card slot" />
-            <PlayingCard size={size} label="Empty card slot" />
+            <PlayingCard size={cardWidth} label="Empty card slot" />
+            <PlayingCard size={cardWidth} label="Empty card slot" />
           </>
         ) : (
           cards.map((card, i) => (
-            <DealtCard key={card.id} card={card} rotated={i === 2} size={size} shoeRef={shoeRef} dealMs={dealMs} highlight={won && outcome !== null && i === cards.length - 1 && bonus !== null} />
+            <DealtCard key={card.id} card={card} rotated={i === 2} size={cardWidth} shoeRef={shoeRef} dealMs={dealMs} highlight={won && outcome !== null && i === cards.length - 1 && bonus !== null} />
           ))
         )}
       </div>

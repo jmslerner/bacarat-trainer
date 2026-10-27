@@ -79,6 +79,8 @@ describe('formatting and verdicts', () => {
     expect(formatEdgeRange({ low: 0.010183, high: 0.010183 })).toBe('1.02%');
     expect(formatEdgeRange({ low: 0.010183, high: 0.012351 })).toBe('1.02–1.24%');
     expect(formatEdgeRange({ low: -0.0771, high: -0.0771 })).toBe('-7.71%');
+    expect(formatEdgeRange({ low: -0.0035, high: 0.0102 })).toBe('-0.35% to 1.02%');
+    expect(formatEdgeRange({ low: -0.02, high: -0.01 })).toBe('-2.00–-1.00%');
   });
 
   it('calls a run in line, luckier or unluckier with a tolerance for noise', () => {

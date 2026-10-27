@@ -79,6 +79,7 @@
 .results { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; transition: opacity var(--dur-med); }
 .stale { opacity: 0.5; pointer-events: none; }
 .resultsHead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.resultsHead > div:first-child { flex: 1 1 320px; min-width: 0; }
 .strategyLine { margin: 4px 0 0; font-size: var(--text-md); color: var(--ivory); }
 .meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
 .meta li {
@@ -90,7 +91,7 @@
   color: var(--ivory-dim);
   white-space: nowrap;
 }
-.headActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.headActions { flex: none; display: flex; flex-wrap: wrap; gap: 8px; }
 .verdict {
   margin: 0;
   padding: 12px 14px;
@@ -102,11 +103,15 @@
   color: var(--ivory);
 }
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+/* The shell's Stat keeps its label and value on one line; result cards get long labels and money ranges, so let them wrap. */
+.statCard > span:first-child { white-space: normal; overflow: visible; }
+.statCard > span:nth-child(2) { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
 .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
 
 /* ---- tables -------------------------------------------------------------------------------- */
-.tableWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--border); }
+/* position: relative keeps absolutely positioned descendants (the .sr-only labels) inside the scroller's clip. */
+.tableWrap { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--border); }
 .table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .table th, .table td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: top; }
 .table th { font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-light); background: rgba(0, 0, 0, 0.25); }
@@ -114,8 +119,13 @@
 .table tbody tr:last-child td { border-bottom: 0; }
 .rowCurrent td { background: rgba(241, 214, 120, 0.06); }
 .best { color: var(--win); font-weight: 700; }
-.runName { min-width: 220px; max-width: 380px; font-weight: 600; color: var(--ivory); white-space: normal; }
+.table td.runName { min-width: 220px; font-weight: 600; color: var(--ivory); white-space: normal; }
+.runNameText { display: block; max-width: 380px; }
 .runSub { display: block; margin-top: 2px; font-size: var(--text-xs); font-weight: 400; color: var(--ivory-muted); white-space: normal; }
+.sizeSub { display: block; margin-top: 2px; font-size: var(--text-xs); font-weight: 400; color: var(--ivory-muted); white-space: nowrap; }
+.compact { font-size: var(--text-xs); }
+.compact th, .compact td { padding: 6px 8px; }
+.cellSub { display: block; font-size: var(--text-xs); color: var(--ivory-muted); }
 .actions { display: flex; gap: 6px; justify-content: flex-end; }
 .explain { margin: 0; font-size: var(--text-xs); color: var(--ivory-dim); }
 .explainList { display: flex; flex-direction: column; gap: 6px; margin: var(--space-3) 0 0; padding: 0; list-style: none; }

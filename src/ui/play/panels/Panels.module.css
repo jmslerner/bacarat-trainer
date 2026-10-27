@@ -8,6 +8,7 @@
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--border), var(--shadow-md);
 }
+.panelHeading { margin: 0; font: inherit; letter-spacing: normal; }
 .panelHeader {
   display: flex;
   align-items: center;
@@ -26,6 +27,7 @@
 .panelHeader[aria-expanded='true'] { border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: 1px solid var(--border); }
 .panelHeader:focus-visible { box-shadow: var(--focus-ring); border-radius: var(--radius-lg); }
 .panelTitle {
+  display: block;
   margin: 0;
   font-family: var(--font-display);
   font-weight: 700;

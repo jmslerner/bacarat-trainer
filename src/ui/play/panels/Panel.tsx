@@ -17,15 +17,17 @@ export function Panel({ title, meta, open, onToggle, children, className, testId
   const id = useId();
   return (
     <section className={cx(styles.panel, className)} aria-labelledby={`${id}-title`} data-testid={testId}>
-      <button type="button" className={styles.panelHeader} aria-expanded={open} aria-controls={`${id}-body`} onClick={onToggle}>
-        <h2 id={`${id}-title`} className={styles.panelTitle}>
-          {title}
-        </h2>
-        {meta !== undefined && <span className={styles.panelMeta}>{meta}</span>}
-        <svg className={styles.chevron} viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
+      <h2 className={styles.panelHeading}>
+        <button type="button" className={styles.panelHeader} aria-expanded={open} aria-controls={`${id}-body`} onClick={onToggle}>
+          <span id={`${id}-title`} className={styles.panelTitle}>
+            {title}
+          </span>
+          {meta !== undefined && <span className={styles.panelMeta}>{meta}</span>}
+          <svg className={styles.chevron} viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </h2>
       {open && (
         <div id={`${id}-body`} className={styles.panelBody}>
           {children}

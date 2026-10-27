@@ -73,10 +73,11 @@ export function expectedEdge(result: SimResult): EdgeEstimate | null {
   return { low, high, main, dragon7, panda8, simulated };
 }
 
-/** "1.02%" or "1.02–1.24%" (negative figures keep their sign, e.g. "-0.35%"). */
+/** "1.02%" or "1.02–1.24%" (negative figures keep their sign, e.g. "-0.35%"; a range across zero reads "-0.35% to 1.02%"). */
 export function formatEdgeRange(range: EdgeRange, digits = 2): string {
   const num = (f: number): string => (f * 100).toFixed(digits);
-  return isEdgeRange(range) ? `${num(range.low)}–${num(range.high)}%` : `${num(range.low)}%`;
+  if (!isEdgeRange(range)) return `${num(range.low)}%`;
+  return range.low < 0 && range.high > 0 ? `${num(range.low)}% to ${num(range.high)}%` : `${num(range.low)}–${num(range.high)}%`;
 }
 
 export type EdgeVerdict = 'inLine' | 'luckier' | 'unluckier';

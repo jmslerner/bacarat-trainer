@@ -78,6 +78,12 @@ export function explainStep(step: DealStep, result: HandResult, rules: TableRule
     }
     case 'result':
       if (step.outcome === 'tie') return `Equal totals: a tie. Player and Banker bets are returned; Tie bets pay ${rules.tiePays} to 1.`;
+      if (step.outcome === 'banker' && result.dragon7 && rules.bankerRule === 'ez') {
+        return 'The hand closer to 9 wins — but the Banker made its 7 with three cards, so at an EZ table Banker bets are a push, not a win (next call); Player bets are collected.';
+      }
+      if (step.outcome === 'banker' && result.bankerWinOn6 && rules.bankerRule === 'super6') {
+        return 'The hand closer to 9 wins. The Banker won with a 6, so at a Super 6 table Banker bets are paid only half (1 to 2); Player bets are collected.';
+      }
       return `The hand closer to 9 wins. ${side(step.outcome)} bets are paid 1 to 1${step.outcome === 'banker' && rules.bankerRule === 'commission' ? ` less the ${Math.round(rules.commissionRate * 100)}% commission` : ''}; bets on the other side are collected.`;
     case 'bonus':
       switch (step.kind) {

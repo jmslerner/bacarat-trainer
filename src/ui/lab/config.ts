@@ -120,13 +120,13 @@ const presets: LabPreset[] = [
   {
     id: 'martingalePlayer',
     name: 'Martingale on Player',
-    blurb: 'Double after every loss. Most sessions win a little; the rest meet the table maximum.',
+    blurb: 'Double after every loss. Most sessions win a little; one long losing streak takes the whole bankroll.',
     patch: { selectorId: 'alwaysPlayer', systemId: 'martingale', systemParams: { maxDoublings: 8 }, dragon7: 'never', panda8: 'never' },
   },
   {
     id: 'countDragon7',
     name: 'Count Dragon 7',
-    blurb: 'Flat Banker at the minimum plus a Dragon 7 bet only when the true count reaches 4: the one real edge.',
+    blurb: 'Flat Banker plus a Dragon 7 bet only when the true count reaches 4: the one real edge, thin and wild enough that a small bankroll often busts before it shows.',
     patch: { selectorId: 'alwaysBanker', systemId: 'flat', systemParams: {}, dragon7: 'count', panda8: 'never', sideUnits: 5 },
   },
   {
@@ -147,6 +147,17 @@ export const LAB_PRESETS: readonly LabPreset[] = Object.freeze(presets);
 
 export function getLabPreset(id: string): LabPreset | undefined {
   return LAB_PRESETS.find((p) => p.id === id);
+}
+
+/** `#lab/<presetId>`: the hash the lessons link to so the Lab opens with that preset applied. */
+export function labPresetHash(id: string): string {
+  return `#lab/${id}`;
+}
+
+/** The preset named by a `#lab/<presetId>` hash (see `labPresetHash`), or null for `#lab` and unknown ids. */
+export function labPresetFromHash(hash: string): LabPreset | null {
+  const m = /^#?\/?lab\/([A-Za-z0-9_-]+)/.exec(hash.trim());
+  return m ? (getLabPreset(m[1]) ?? null) : null;
 }
 
 /** The preset's strategy over the rest of the configuration (unit, bankroll, run size and seed are kept). */

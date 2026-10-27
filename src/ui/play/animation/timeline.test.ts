@@ -112,7 +112,7 @@ describe('buildShuffleTimeline', () => {
   it('plays shuffling, cut card and burn, then opens the table', () => {
     const frames = buildShuffleTimeline(shoeInfo, DEFAULT_RULES, 100);
     expect(frames.map((f) => f.at)).toEqual([0, 100 * TIMING.shuffle, 100 * (TIMING.shuffle + TIMING.cut), 100 * (TIMING.shuffle + TIMING.cut + TIMING.burn)]);
-    expect(frames[0]).toMatchObject({ phase: 'shuffling', sound: 'shuffle', keySound: true, layout: null });
+    expect(frames[0]).toMatchObject({ phase: 'shuffling', sound: 'shuffle', keySound: true, layout: null, announce: '' });
     expect(frames[0].hand!.message).toBe('Shuffling shoe 2…');
     expect(frames[1].shuffle!.message).toBe('Cut card placed 14 cards from the end');
     expect(frames[3]).toMatchObject({ phase: 'idle', event: 'done' });

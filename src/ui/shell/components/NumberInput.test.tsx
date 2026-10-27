@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, afterEach } from 'vitest';
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { NumberInput } from './NumberInput';
 
@@ -80,5 +80,28 @@ describe('NumberInput', () => {
     fireEvent.blur(input);
     expect(input.value).toBe('8');
     expect(input).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('keeps the whole value selected after the focus re-format, so a Tab focus (or an automated fill) replaces instead of appending', () => {
+    render(<Harness min={1} max={100000} decimals={0} />);
+    const input = screen.getByLabelText('Amount') as HTMLInputElement;
+    expect(input.value).toBe('1,000');
+    act(() => {
+      input.focus(); // a Tab focus: the browser selects the whole text before React swaps it for "1000"
+      input.select();
+    });
+    expect(input.value).toBe('1000');
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(4);
+    // Typing now replaces the value rather than appending to it.
+    fireEvent.change(input, { target: { value: '20' } });
+    expect(screen.getByTestId('value')).toHaveTextContent(/^20$/);
+    fireEvent.blur(input);
+    expect(input.value).toBe('20');
+    // A value with no grouping is left alone on focus (no re-format, nothing to restore).
+    act(() => {
+      input.focus();
+    });
+    expect(input.value).toBe('20');
   });
 });

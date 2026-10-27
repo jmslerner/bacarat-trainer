@@ -9,6 +9,38 @@ export const SOUND_NAMES: readonly SoundName[] = ['chip', 'deal', 'flip', 'win',
 
 type Ctx = AudioContext;
 
+/**
+ * Browsers only let an AudioContext start after a user gesture, and Chromium logs a console warning when one is
+ * created before that. The table plays its first sound (the opening shuffle) on page load, so sounds are dropped
+ * until the page has seen a pointer or keyboard interaction.
+ */
+let activated = false;
+
+function hasUserActivation(): boolean {
+  if (activated) return true;
+  try {
+    const nav = typeof navigator !== 'undefined' ? (navigator as Navigator & { userActivation?: { hasBeenActive?: boolean } }) : null;
+    if (nav?.userActivation?.hasBeenActive === true) activated = true;
+  } catch {
+    /* ignore */
+  }
+  return activated;
+}
+
+function bindActivation(): void {
+  if (typeof window === 'undefined') return;
+  const mark = (): void => {
+    activated = true;
+  };
+  try {
+    for (const type of ['pointerdown', 'keydown', 'touchstart'] as const) window.addEventListener(type, mark, { capture: true, passive: true });
+  } catch {
+    /* ignore */
+  }
+}
+
+bindActivation();
+
 interface ToneSpec {
   freq: number;
   endFreq?: number;
@@ -60,6 +92,7 @@ class SoundEngine {
       }
       return this.ctx;
     }
+    if (!hasUserActivation()) return null;
     try {
       const w = globalThis as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
       const Ctor = w.AudioContext ?? w.webkitAudioContext;

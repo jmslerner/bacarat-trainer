@@ -41,7 +41,7 @@ export function DealtCard({ card, rotated = false, size, shoeRef, highlight, dim
 
   const style = { '--deal-ms': `${dealMs}ms` } as CSSProperties;
   return (
-    <div ref={ref} className={cx(styles.cardFlip, dealMs > 0 && styles.cardAnimated, rotated && styles.cardRotated)} style={style} data-card-id={card.id} data-dealt>
+    <div ref={ref} className={cx(styles.cardFlip, dealMs > 0 && styles.cardAnimated)} style={style} data-card-id={card.id} data-dealt>
       <div className={styles.cardFace}>
         <PlayingCard card={card} rotated={rotated} size={size} highlight={highlight} dimmed={dimmed} />
       </div>

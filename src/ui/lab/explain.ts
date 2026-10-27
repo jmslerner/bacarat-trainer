@@ -24,6 +24,11 @@ export function explainMeanFinal(result: SimResult): string {
 }
 
 export function explainMedianFinal(result: SimResult): string {
+  if (result.medianFinal <= 0) {
+    return result.meanFinal > 0.005
+      ? 'At least half of the sessions ended with nothing left; the average is carried by the few that won big.'
+      : 'Every session ended with nothing left.';
+  }
   const base = `Half of the sessions finished below ${formatMoney(result.medianFinal)} and half above it.`;
   const gap = result.meanFinal - result.medianFinal;
   if (gap > Math.max(1, 0.02 * result.config.bankroll)) return `${base} A few big wins pull the average above the typical session.`;
@@ -55,11 +60,14 @@ export function explainExpectedEdge(result: SimResult, expected: EdgeEstimate | 
   if (!expected) return 'Nothing was wagered, so the math has nothing to price.';
   const verdict = edgeVerdict(result.realizedEdge, expected);
   const playerEdge = expected.high < 0;
+  const source = expected.simulated ? 'The simulated count table' : 'The math';
   if (playerEdge) {
-    return verdict === 'inLine'
-      ? 'The math says the player holds the edge here, and the simulation agrees: counting the side bet pays.'
-      : 'The math says the player holds the edge here; the run strayed from it, as short runs do.';
+    // "Agrees" only when the player actually came out ahead per dollar wagered, not merely within the noise band.
+    return verdict === 'inLine' && result.realizedEdge < 0
+      ? `${source} says the player holds the edge here, and this run agrees: counting the side bet pays.`
+      : `${source} says the player holds the edge here; the run strayed from it, as short runs do.`;
   }
+  if (expected.simulated && verdict === 'inLine') return 'The run landed where the exact main-bet edge and the simulated count table put it.';
   if (verdict === 'luckier') return 'Luckier than the math this time; more trials pull the realized edge back toward this figure.';
   if (verdict === 'unluckier') return 'Unluckier than the math this time; more trials pull the realized edge back toward this figure.';
   return isEdgeRange(expected)
@@ -141,8 +149,10 @@ export function verdictSentence(result: SimResult, expected: EdgeEstimate | null
     second = 'Nothing was wagered, so there is no edge to measure.';
   } else {
     const kept = result.realizedEdge >= 0 ? `The house kept ${pct(result.realizedEdge, 2)} of every dollar wagered` : `The player kept ${pct(-result.realizedEdge, 2)} of every dollar wagered`;
-    const math = expected.high < 0 ? `the math gives the player ${formatEdgeRange({ low: -expected.high, high: -expected.low })}` : `the math says ${formatEdgeRange(expected)}`;
-    second = `${kept} (${math}); ${pct(result.pProfit, 0)} of sessions ended ahead and ${pct(result.pRuin, 0)} went bust.`;
+    const source = expected.simulated ? 'the count table' : 'the math';
+    const math = expected.high < 0 ? `${source} gives the player ${formatEdgeRange({ low: -expected.high, high: -expected.low })}` : `${source} says ${formatEdgeRange(expected)}`;
+    const ruin = config.stopLoss !== undefined ? 'hit the stop loss or went bust' : 'went bust';
+    second = `${kept} (${math}); ${pct(result.pProfit, 0)} of sessions ended ahead and ${pct(result.pRuin, 0)} ${ruin}.`;
   }
   return `${first} ${second}`;
 }

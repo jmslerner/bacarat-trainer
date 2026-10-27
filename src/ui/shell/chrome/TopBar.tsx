@@ -5,6 +5,7 @@ import { Plaque } from '../components/Plaque';
 import { Button } from '../components/Button';
 import { Tooltip } from '../components/Tooltip';
 import { useSessionState } from '../hooks/useSession';
+import { useDisplayedBankroll } from '../hooks/useDisplayedBankroll';
 import { useIsPhone } from '../hooks/useMediaQuery';
 import { useSound } from '../hooks/useSound';
 import { MODES, type Mode, type Route } from '../routing';
@@ -19,23 +20,29 @@ export interface TopBarProps {
   onOpenSettings: (tab?: SettingsTab) => void;
 }
 
-/** Bankroll pill: live bankroll with the session net, opens the buy-in tab. */
+/**
+ * Bankroll pill: the bankroll with the session net, opens the buy-in tab. While the table is dealing a hand it
+ * follows the figure the table displays (published by the Play view), so the pill never reveals the result
+ * before the cards are out; otherwise it shows the live session.
+ */
 export function BankrollPill({ onClick }: { onClick: () => void }): ReactNode {
   const state = useSessionState();
+  const displayed = useDisplayedBankroll();
   const phone = useIsPhone();
-  const net = state.stats.net;
+  const bankroll = displayed ? displayed.bankroll : state.bankroll;
+  const net = displayed ? displayed.net : state.stats.net;
   const tone = Math.abs(net) < 0.005 ? 'flat' : net > 0 ? 'up' : 'down';
-  const exact = formatMoney(state.bankroll);
+  const exact = formatMoney(bankroll);
   // Seven-figure bankrolls do not fit a 380px top bar: show them compact there (the exact figure stays in the accessible name).
-  const compact = phone && Math.abs(state.bankroll) >= 1_000_000;
+  const compact = phone && Math.abs(bankroll) >= 1_000_000;
   return (
     <Tooltip content="Bankroll — click to buy in or reset" placement="bottom">
-      <button type="button" className={styles.bankroll} onClick={onClick} data-testid="bankroll-pill" title={compact ? exact : undefined}>
+      <button type="button" className={styles.bankroll} onClick={onClick} data-testid="bankroll-pill" title={compact ? exact : undefined} data-value={bankroll}>
         <span className={styles.bankrollLabel}>Bankroll</span>
         {compact ? (
           <>
             <span className={styles.bankrollValue} aria-hidden="true">
-              {formatMoneyCompact(state.bankroll)}
+              {formatMoneyCompact(bankroll)}
             </span>
             <span className="sr-only">{exact}</span>
           </>

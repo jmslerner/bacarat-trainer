@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { shortcutFor, useShortcuts, type ShortcutHandlers } from './useShortcuts';
+import { focusModality, shortcutFor, useShortcuts, type ShortcutHandlers } from './useShortcuts';
 
 afterEach(() => {
   cleanup();
@@ -74,13 +74,26 @@ describe('useShortcuts', () => {
     fireEvent.keyDown(window, { key: 'p', repeat: true });
     expect(h.calls).toEqual(['place:player']);
 
-    // Space on a focused button activates that button instead of dealing; letters still work there
+    // Space on a button that was clicked (pointer focus) still deals — a spot or chip under the mouse must not
+    // swallow the deal key; after Tab (keyboard focus) Space is left to the button's native activation.
     const button = document.createElement('button');
     document.body.appendChild(button);
+    fireEvent.pointerDown(button);
+    expect(focusModality()).toBe('pointer');
+    expect(fireEvent.keyDown(button, { key: ' ' })).toBe(false);
+    expect(h.calls).toEqual(['place:player', 'deal']);
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(focusModality()).toBe('keyboard');
     expect(fireEvent.keyDown(button, { key: ' ' })).toBe(true);
     fireEvent.keyDown(button, { key: 'r' });
-    expect(h.calls).toEqual(['place:player', 'rebet']);
+    expect(h.calls).toEqual(['place:player', 'deal', 'rebet']);
+    fireEvent.keyDown(window, { key: ' ' }); // nothing focused: deals regardless of modality
+    expect(h.calls).toEqual(['place:player', 'deal', 'rebet', 'deal']);
+    fireEvent.pointerDown(button);
+    expect(focusModality()).toBe('pointer');
     button.remove();
+    h.calls.length = 0;
+    h.calls.push('place:player', 'rebet');
 
     const dialog = document.createElement('div');
     dialog.setAttribute('role', 'dialog');

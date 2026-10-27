@@ -15,7 +15,6 @@ export { SettingsDialog, describeRuleProblems, localRuleProblems, cutCardRange, 
 export type { SettingsDialogProps, SettingsTab } from './settings/SettingsDialog';
 export { MODES, DEFAULT_MODE, parseHash, toHash, navigate, isMode, modeInfo, useHashRoute } from './routing';
 export type { Mode, Route, ModeInfo } from './routing';
-export { PlayPlaceholder, LearnPlaceholder, LabPlaceholder, LESSON_IDS } from './placeholders';
 export { formatMoney, formatMoneyCompact, formatPercent, formatNumber, formatSigned, formatOdds } from './format';
 export type { MoneyOptions } from './format';
 export { cx } from './cx';

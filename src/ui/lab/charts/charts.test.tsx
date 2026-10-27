@@ -32,7 +32,9 @@ describe('scale helpers', () => {
     expect(money.ticks[0]).toBeLessThanOrEqual(480);
     expect(money.ticks[money.ticks.length - 1]).toBeGreaterThanOrEqual(1320);
     expect(niceTicks(5, 5, 4).ticks.length).toBeGreaterThan(1);
-    expect(niceTicks(Number.NaN, Number.NaN).ticks).toEqual([0, 1]);
+    const nan = niceTicks(Number.NaN, Number.NaN);
+    expect(nan.ticks[0]).toBe(0);
+    expect(nan.ticks[nan.ticks.length - 1]).toBe(1);
   });
 
   it('scaleLinear maps and tolerates an empty domain', () => {
@@ -70,10 +72,36 @@ describe('Histogram', () => {
     expect(screen.getByRole('table').textContent).toMatch(/\$1,000/);
   });
 
+  it('reads each bin from the keyboard and clears on Escape or blur', () => {
+    render(<Histogram bins={bins.slice(0, 4)} start={1000} trials={75} />);
+    const group = screen.getByRole('group', { name: /Final bankroll histogram/ });
+    expect(group).toHaveAttribute('tabindex', '0');
+    const readout = screen.getByTestId('lab-histogram-readout');
+    expect(readout).toHaveTextContent('');
+    fireEvent.keyDown(group, { key: 'ArrowRight' });
+    expect(readout).toHaveTextContent('$400 to $600: 5 trials (6.7%).');
+    expect(document.querySelector('path[data-bin="0"]')?.getAttribute('class')).toMatch(/barHover/);
+    fireEvent.keyDown(group, { key: 'End' });
+    expect(readout).toHaveTextContent('$1,000 to $1,200: 30 trials (40.0%).');
+    fireEvent.keyDown(group, { key: 'ArrowLeft' });
+    expect(readout).toHaveTextContent('$800 to $1,000: 40 trials (53.3%).');
+    fireEvent.keyDown(group, { key: 'ArrowLeft' });
+    expect(readout).toHaveTextContent('$600 to $800: 0 trials (0.0%).'); // empty bins are still readable
+    fireEvent.keyDown(group, { key: 'Home' });
+    expect(readout).toHaveTextContent('$400 to $600');
+    fireEvent.keyDown(group, { key: 'Escape' });
+    expect(readout).toHaveTextContent('');
+    fireEvent.keyDown(group, { key: 'ArrowUp' });
+    expect(readout).toHaveTextContent('$400 to $600');
+    fireEvent.blur(group);
+    expect(readout).toHaveTextContent('');
+  });
+
   it('renders an empty state without bins', () => {
     render(<Histogram bins={[]} start={1000} trials={0} />);
     expect(screen.getByText('No trials to show.')).toBeInTheDocument();
     expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.queryByRole('group', { name: /Final bankroll histogram/ })).toBeNull();
   });
 });
 

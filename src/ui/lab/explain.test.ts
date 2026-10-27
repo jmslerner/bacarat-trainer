@@ -12,6 +12,8 @@ describe('explanations', () => {
     expect(explainMedianFinal(fakeResult({ meanFinal: 917, medianFinal: 925 }))).toBe('Half of the sessions finished below $925 and half above it.');
     expect(explainMedianFinal(fakeResult({ meanFinal: 1100, medianFinal: 925 }))).toMatch(/big wins pull the average above/);
     expect(explainMedianFinal(fakeResult({ meanFinal: 800, medianFinal: 925 }))).toMatch(/busts pull the average below/);
+    expect(explainMedianFinal(fakeResult({ meanFinal: 1097, medianFinal: 0 }))).toMatch(/^At least half of the sessions ended with nothing left; the average is carried by the few that won big/);
+    expect(explainMedianFinal(fakeResult({ meanFinal: 0, medianFinal: 0 }))).toBe('Every session ended with nothing left.');
   });
 
   it('turn probabilities into sessions out of a hundred', () => {
@@ -36,6 +38,26 @@ describe('explanations', () => {
     const unlucky = fakeResult({ realizedEdge: 0.03 });
     expect(explainExpectedEdge(unlucky, expectedEdge(unlucky))).toMatch(/Unluckier than the math/);
     expect(explainExpectedEdge(fakeResult({ totalWagered: 0 }), null)).toMatch(/nothing to price/);
+  });
+
+  it('only says a counted run "agrees" with the player edge when the player actually came out ahead', () => {
+    const countStrategy = { selectorId: 'alwaysBanker', systemId: 'flat', systemParams: {}, unit: 10, sideBets: { dragon7: 'count' as const, panda8: 'never' as const, units: 5 } };
+    const side = { dragon7: { bets: 10, wins: 1, wagered: 500, net: 100 }, panda8: { bets: 0, wins: 0, wagered: 0, net: 0 } };
+    const ahead = fakeResult({ totalWagered: 1000, sideBets: side, realizedEdge: -0.03 }, { strategy: countStrategy }); // expected ≈ −3.35%, band ±0.84%
+    const estimate = expectedEdge(ahead);
+    expect(estimate?.simulated).toBe(true);
+    expect(estimate?.high).toBeLessThan(0);
+    expect(explainExpectedEdge(ahead, estimate)).toBe('The simulated count table says the player holds the edge here, and this run agrees: counting the side bet pays.');
+    // Within the noise band but the house kept money: that is not agreement.
+    const behind = fakeResult({ totalWagered: 1000, sideBets: side, realizedEdge: 0.002 }, { strategy: countStrategy });
+    expect(explainExpectedEdge(behind, expectedEdge(behind))).toBe('The simulated count table says the player holds the edge here; the run strayed from it, as short runs do.');
+    const text = verdictSentence(ahead, estimate);
+    expect(text).toMatch(/The player kept 3.00% of every dollar wagered \(the count table gives the player 3.35%\)/);
+  });
+
+  it('names the stop loss in the verdict when one was set', () => {
+    const r = fakeResult({ pRuin: 0.12 }, { stopLoss: 300 });
+    expect(verdictSentence(r, expectedEdge(r))).toMatch(/12% hit the stop loss or went bust\.$/);
   });
 
   it('describe the side bets and the outcome mix against the exact probabilities', () => {

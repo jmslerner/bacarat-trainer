@@ -3,6 +3,12 @@
  * Space deal (or fast-forward the dealing), R rebet, C clear, U undo, A auto-deal.
  *
  * Ignored while typing in a field, with modifier keys, and while a modal dialog is open.
+ *
+ * Space always deals (SPEC §5.5) — including when a spot or a chip was just clicked with the mouse and still
+ * holds focus. The one exception is a control reached with the keyboard (Tab / arrow keys): there Space keeps
+ * its native activation so keyboard users can still press a focused spot, toggle or panel header. Enter
+ * activates a focused control in either case. (Browsers flip `:focus-visible` on the first keydown, so the
+ * modality is tracked here instead.)
  */
 import { useEffect, useRef } from 'react';
 import type { BetType } from '@/engine';
@@ -19,13 +25,24 @@ export interface ShortcutHandlers {
 
 const BET_KEYS: Readonly<Record<string, BetType>> = { p: 'player', b: 'banker', t: 'tie', d: 'dragon7', n: 'panda8' };
 
+export type FocusModality = 'pointer' | 'keyboard';
+
+/** How focus last moved: by a pointer (click / tap) or by the keyboard (Tab, arrows). */
+let modality: FocusModality = 'pointer';
+const NAVIGATION_KEYS = new Set(['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
+
+/** The focus modality seen by the shortcuts (exported for tests). */
+export function focusModality(): FocusModality {
+  return modality;
+}
+
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 }
 
-/** Buttons and links handle Space/Enter themselves (a spot or chip reached with Tab must stay activatable). */
+/** Buttons and links handle Space/Enter themselves. */
 export function isActivatableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
@@ -54,12 +71,17 @@ export function useShortcuts(handlers: ShortcutHandlers, enabled = true): void {
   ref.current = handlers;
   useEffect(() => {
     if (!enabled) return undefined;
+    const onPointerDown = (): void => {
+      modality = 'pointer';
+    };
     const onKeyDown = (e: KeyboardEvent): void => {
+      if (NAVIGATION_KEYS.has(e.key)) modality = 'keyboard';
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       if (isEditableTarget(e.target) || isModalOpen()) return;
       const action = shortcutFor(e.key);
       if (!action) return;
-      if (action.type === 'deal' && isActivatableTarget(e.target)) return; // Space activates the focused control
+      // Space on a control the user reached with the keyboard activates that control (its native behaviour).
+      if (action.type === 'deal' && modality === 'keyboard' && isActivatableTarget(e.target)) return;
       if (e.repeat && action.type !== 'bet') return;
       e.preventDefault();
       const h = ref.current;
@@ -87,7 +109,11 @@ export function useShortcuts(handlers: ShortcutHandlers, enabled = true): void {
           break;
       }
     };
+    window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, [enabled]);
 }

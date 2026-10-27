@@ -60,6 +60,8 @@
   animation: bannerIn var(--dur-slow) var(--ease-spring) both, bannerPulse 2.2s ease-in-out 1s infinite;
 }
 @keyframes bannerIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* phones: the shoe strip sits at the top of the felt, so the banner takes its own row above it */
+.feltPhone .banner { position: static; transform: none; align-self: center; margin: 0 0 -4px; animation: bannerPulse 2.2s ease-in-out 1s infinite; }
 @keyframes bannerPulse { 0%, 100% { box-shadow: 0 0 0 1px var(--gold-dark), 0 0 14px var(--gold-glow), var(--shadow-md); } 50% { box-shadow: 0 0 0 1px var(--gold-dark), 0 0 30px var(--gold-glow), var(--shadow-md); } }
 
 /* ---- hands ---------------------------------------------------------------- */
@@ -124,6 +126,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+  width: 100%;
   min-height: calc(92px * 1.4);
   perspective: 1100px;
   max-width: 100%;

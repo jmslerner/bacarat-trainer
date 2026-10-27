@@ -63,7 +63,7 @@ export function MartingaleExplorer({ rules, handsPerHour = 70 }: MartingaleExplo
         ]}
       />
       <p className={styles.note}>
-        Between busts the system wins {formatMoney(unit)} about {formatNumber(m.sequencesPerBust, 0)} times — roughly {formatMoney(unit * m.sequencesPerBust)} — and then
+        Between busts the system wins {formatMoney(unit)} about {formatNumber(m.sequencesPerBust, 0)} times — roughly {formatMoney(Math.round(unit * m.sequencesPerBust))} — and then
         loses {formatMoney(m.bustLoss)} in one go. The small wins and the rare disaster add up to the same expected loss as flat betting the same total action.
       </p>
     </Widget>

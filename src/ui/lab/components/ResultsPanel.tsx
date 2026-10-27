@@ -7,7 +7,7 @@ import { exactProbabilities } from '@/engine';
 import type { TableRules } from '@/engine';
 import { describeStrategy } from '@/strategy';
 import type { SideBetMode, SideBetSimStats, SimResult } from '@/strategy';
-import { Button, Stat, cx, formatMoney, formatNumber, formatPercent, ruleSummary, toneForNet } from '@/ui/shell';
+import { Button, Stat, cx, formatMoney, formatMoneyCompact, formatNumber, formatPercent, ruleSummary, toneForNet } from '@/ui/shell';
 import type { StatTone } from '@/ui/shell';
 import { Histogram } from '../charts/Histogram';
 import { CurvesChart } from '../charts/CurvesChart';
@@ -50,7 +50,7 @@ interface StatSpec {
   explain: string;
 }
 
-const MODE_LABEL: Record<SideBetMode, string> = { never: 'never', always: 'every hand', count: 'when the count says so' };
+const MODE_LABEL: Record<SideBetMode, string> = { never: 'never', always: 'every hand', count: 'on the count' };
 
 function sideRow(bet: 'dragon7' | 'panda8', stats: SideBetSimStats, mode: SideBetMode, rules: TableRules): ReactNode {
   const exact = exactProbabilities(rules.decks);
@@ -59,14 +59,24 @@ function sideRow(bet: 'dragon7' | 'panda8', stats: SideBetSimStats, mode: SideBe
   const ret = stats.wagered > 0 ? stats.net / stats.wagered : null;
   return (
     <tr key={bet} data-testid={`lab-side-${bet}`}>
-      <td>{SIDE_BET_LABELS[bet]}</td>
-      <td>{rules.sideBets[bet] ? MODE_LABEL[mode] : 'not dealt'}</td>
-      <td>{formatNumber(stats.bets)}</td>
-      <td>{formatNumber(stats.wins)}</td>
-      <td>{hitRate === null ? '—' : `${formatPercent(hitRate, 2)} (math ${formatPercent(base, 2)})`}</td>
-      <td>{formatMoney(stats.wagered)}</td>
-      <td className={stats.net > 0 ? 'c-win' : stats.net < 0 ? 'c-loss' : undefined}>{formatMoney(stats.net, { signed: true })}</td>
-      <td className={ret !== null && ret > 0 ? 'c-win' : ret !== null && ret < 0 ? 'c-loss' : undefined}>{ret === null ? '—' : formatPercent(ret, 2, true)}</td>
+      <td>
+        {SIDE_BET_LABELS[bet]}
+        <span className={styles.cellSub}>{rules.sideBets[bet] ? MODE_LABEL[mode] : 'not dealt'}</span>
+      </td>
+      <td>
+        {formatNumber(stats.bets)}
+        <span className={styles.cellSub}>{formatNumber(stats.wins)} hit</span>
+      </td>
+      <td>
+        {hitRate === null ? '—' : formatPercent(hitRate, 2)}
+        <span className={styles.cellSub}>math {formatPercent(base, 2)}</span>
+      </td>
+      <td title={formatMoney(stats.wagered)}>{formatMoneyCompact(stats.wagered)}</td>
+      <td className={stats.net > 0 ? 'c-win' : stats.net < 0 ? 'c-loss' : undefined} title={formatMoney(stats.net, { signed: true })}>
+        {stats.net > 0 ? '+' : ''}
+        {formatMoneyCompact(stats.net)}
+        <span className={styles.cellSub}>{ret === null ? '—' : `${formatPercent(ret, 2, true)} return`}</span>
+      </td>
     </tr>
   );
 }
@@ -84,7 +94,7 @@ export function ResultsPanel({ result, stale, saved, savedCount, maxSaved, onSav
   const stats: StatSpec[] = [
     { key: 'mean', label: 'Mean final bankroll', value: formatMoney(result.meanFinal), tone: toneForNet(result.meanFinal - start), explain: explainMeanFinal(result) },
     { key: 'median', label: 'Median final bankroll', value: formatMoney(result.medianFinal), tone: toneForNet(result.medianFinal - start), explain: explainMedianFinal(result) },
-    { key: 'pProfit', label: 'Chance of a winning session', value: formatPercent(result.pProfit, 1), tone: result.pProfit >= 0.5 ? 'positive' : 'neutral', explain: explainPProfit(result) },
+    { key: 'pProfit', label: 'Winning sessions', value: formatPercent(result.pProfit, 1), tone: result.pProfit >= 0.5 ? 'positive' : 'neutral', explain: explainPProfit(result) },
     { key: 'pRuin', label: 'Risk of ruin', value: formatPercent(result.pRuin, 1), tone: result.pRuin === 0 ? 'positive' : result.pRuin > 0.1 ? 'negative' : 'neutral', explain: explainPRuin(result) },
     {
       key: 'realized',
@@ -93,13 +103,19 @@ export function ResultsPanel({ result, stale, saved, savedCount, maxSaved, onSav
       tone: !wagered ? 'neutral' : result.realizedEdge > 0 ? 'negative' : result.realizedEdge < 0 ? 'positive' : 'neutral',
       explain: explainRealizedEdge(result),
     },
-    { key: 'exact', label: `Exact edge (${expected ? expected.main.label : 'math'})`, value: expected ? formatEdgeRange(expected) : '—', tone: 'gold', explain: explainExpectedEdge(result, expected) },
+    {
+      key: 'exact',
+      label: expected?.simulated ? `Expected edge (${expected.main.label} + count table)` : `Exact edge (${expected ? expected.main.label : 'math'})`,
+      value: expected ? formatEdgeRange(expected) : '—',
+      tone: 'gold',
+      explain: explainExpectedEdge(result, expected),
+    },
     { key: 'drawdown', label: 'Mean max drawdown', value: formatMoney(result.meanMaxDrawdown), tone: result.meanMaxDrawdown > 0 ? 'negative' : 'neutral', explain: explainMeanDrawdown(result) },
     { key: 'worst', label: 'Worst drawdown', value: formatMoney(result.worstDrawdown), tone: result.worstDrawdown > 0 ? 'negative' : 'neutral', explain: explainWorstDrawdown(result) },
     { key: 'hands', label: 'Hands dealt', value: formatNumber(result.handsPlayed), tone: 'neutral', explain: explainHands(result) },
     { key: 'wagered', label: 'Total wagered', value: formatMoney(result.totalWagered), tone: 'neutral', explain: explainWagered(result) },
-    { key: 'spread', label: 'Spread of finishes (std dev)', value: formatMoney(result.stdFinal), tone: 'neutral', explain: explainSpread(result) },
-    { key: 'range', label: '90% of sessions finished between', value: `${formatMoney(result.percentiles.p5)} – ${formatMoney(result.percentiles.p95)}`, tone: 'neutral', explain: explainPercentiles(result) },
+    { key: 'spread', label: 'Spread (std dev)', value: formatMoney(result.stdFinal), tone: 'neutral', explain: explainSpread(result) },
+    { key: 'range', label: '90% range', value: `${formatMoney(result.percentiles.p5)} – ${formatMoney(result.percentiles.p95)}`, tone: 'neutral', explain: explainPercentiles(result) },
   ];
 
   const mix = [
@@ -142,7 +158,7 @@ export function ResultsPanel({ result, stale, saved, savedCount, maxSaved, onSav
 
       <div className={styles.stats} data-testid="lab-stats">
         {stats.map((s) => (
-          <Stat key={s.key} label={s.label} value={s.value} tone={s.tone} sub={s.explain} className={undefined} title={s.label} />
+          <Stat key={s.key} label={s.label} value={s.value} tone={s.tone} sub={s.explain} className={styles.statCard} title={s.label} />
         ))}
       </div>
 
@@ -163,17 +179,14 @@ export function ResultsPanel({ result, stale, saved, savedCount, maxSaved, onSav
           </div>
           {anySide || policy.dragon7 !== 'never' || policy.panda8 !== 'never' ? (
             <div className={styles.tableWrap}>
-              <table className={styles.table} data-testid="lab-side-bets">
+              <table className={cx(styles.table, styles.compact)} data-testid="lab-side-bets">
                 <thead>
                   <tr>
                     <th scope="col">Bet</th>
-                    <th scope="col">Policy</th>
                     <th scope="col">Bets</th>
-                    <th scope="col">Hits</th>
                     <th scope="col">Hit rate</th>
                     <th scope="col">Wagered</th>
                     <th scope="col">Net</th>
-                    <th scope="col">Return</th>
                   </tr>
                 </thead>
                 <tbody>

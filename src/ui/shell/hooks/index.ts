@@ -34,3 +34,5 @@ export { useSound, playSound, SOUND_NAMES } from './useSound';
 export type { SoundName, SoundApi } from './useSound';
 export { soundEngine } from './soundEngine';
 export { useMediaQuery, useIsPhone, useIsTablet, BREAKPOINTS } from './useMediaQuery';
+export { useDisplayedBankroll, publishDisplayedBankroll, getDisplayedBankroll } from './useDisplayedBankroll';
+export type { DisplayedBankroll } from './useDisplayedBankroll';

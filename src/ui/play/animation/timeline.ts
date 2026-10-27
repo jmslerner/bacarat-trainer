@@ -127,6 +127,8 @@ export function buildShuffleTimeline(shoe: ShoeInfo, rules: TableRules, base: nu
   frames[frames.length - 1].sound = 'shuffle';
   frames[frames.length - 1].keySound = true;
   frames[frames.length - 1].layout = null;
+  // The previous hand's "You won / lost" line belongs to the shoe that just ended.
+  frames[frames.length - 1].announce = '';
   t += base * TIMING.shuffle;
   stage({ stage: 'cut', message: `Cut card placed ${rules.cutCardFromEnd} cards from the end`, card: null, burned: 0 });
   t += base * TIMING.cut;

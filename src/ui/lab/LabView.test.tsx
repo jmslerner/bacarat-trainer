@@ -7,6 +7,7 @@ import { runSimulation, validateSimConfig } from '@/strategy';
 import { buyInStore, rulesStore } from '@/ui/shell';
 import { LabView } from './LabView';
 import { defaultLabConfig, toSimConfig, type LabConfig } from './config';
+import { expectedEdge, formatEdgeRange } from './edge';
 import { savedRunsStore, saveRun, summarizeResult } from './savedRuns';
 import { fakeResult } from './testHelpers';
 
@@ -37,7 +38,8 @@ describe('LabView — form', () => {
     expect(field('Shoes per trial').value).toBe('10');
     expect(field('Seed').value).toBe('11');
     expect(select('Table rules').value).toBe('current');
-    expect(select('Table rules').selectedOptions[0].textContent).toMatch(/Current table settings — EZ Baccarat · 8 decks/);
+    expect(select('Table rules').selectedOptions[0].textContent).toBe('Current table settings (Settings dialog)');
+    expect(select('Table rules')).toHaveAccessibleDescription('EZ Baccarat · 8 decks · Tie 8:1 · D7 40:1 · P8 25:1 · Pairs 11:1 · main $10–$5,000 · side $5–$500');
     expect(select('Bet selector').value).toBe('alwaysBanker');
     expect(select('Betting system').value).toBe('flat');
     expect(screen.getByTestId('lab-preset-flatBanker')).toHaveAttribute('aria-pressed', 'true');
@@ -114,13 +116,17 @@ describe('LabView — running', () => {
     const stats = screen.getByTestId('lab-stats');
     expect(stats).toHaveTextContent(`Mean final bankroll$${expected.meanFinal.toLocaleString('en-US')}`);
     expect(stats).toHaveTextContent(/Realized house edge/);
-    expect(stats).toHaveTextContent('Exact edge (Banker)1.02%');
+    const exact = expectedEdge(expected);
+    expect(exact).not.toBeNull();
+    expect(exact?.low).toBeGreaterThan(0.0102); // Banker edge blended with the 7.6% Dragon 7 edge
+    expect(stats).toHaveTextContent(`Exact edge (Banker)${formatEdgeRange(exact as NonNullable<typeof exact>)}`);
     expect(stats).toHaveTextContent(`Hands dealt${expected.handsPlayed.toLocaleString('en-US')}`);
     expect(screen.getByTestId('lab-verdict')).toHaveTextContent(/^Over 30 sessions of one shoe, Always Banker with Flat betting/);
     expect(screen.getByTestId('lab-histogram').querySelectorAll('path[data-bin]').length).toBe(expected.histogram.filter((b) => b.count > 0).length);
     expect(screen.getByTestId('lab-curves').querySelectorAll('path[data-curve]')).toHaveLength(20);
-    expect(screen.getByTestId('lab-side-dragon7')).toHaveTextContent(`Dragon 7every hand${expected.sideBets.dragon7.bets.toLocaleString('en-US')}${expected.sideBets.dragon7.wins}`);
-    expect(screen.getByTestId('lab-side-panda8')).toHaveTextContent(/Panda 8never00/);
+    expect(screen.getByTestId('lab-side-dragon7')).toHaveTextContent(`Dragon 7every hand${expected.sideBets.dragon7.bets.toLocaleString('en-US')}${expected.sideBets.dragon7.wins} hit`);
+    expect(screen.getByTestId('lab-side-dragon7')).toHaveTextContent(/math 2.25%/);
+    expect(screen.getByTestId('lab-side-panda8')).toHaveTextContent(/Panda 8never00 hit—math 3.45%\$0/);
     expect(screen.getByTestId('lab-outcomes')).toHaveTextContent(/math 45.86%/);
     expect(errors).not.toHaveBeenCalled();
   });
@@ -159,6 +165,28 @@ describe('LabView — running', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Remove / }));
     expect(screen.queryByTestId('lab-saved-row')).toBeNull();
     expect(window.localStorage.getItem('bt:lab')).toBe('[]');
+  });
+
+  it('saves the form that produced the result on screen, not the form of a cancelled re-run', async () => {
+    render(<LabView initialConfig={{ ...SMALL, unit: 15 }} />);
+    fireEvent.click(screen.getByTestId('lab-run'));
+    await screen.findByTestId('lab-results');
+    // Edit the form, start a second run and cancel it before it starts: run A's result stays on screen.
+    fireEvent.change(field('Unit'), { target: { value: '40' } });
+    fireEvent.change(field('Trials'), { target: { value: '2000' } });
+    fireEvent.click(screen.getByTestId('lab-run'));
+    fireEvent.click(screen.getByTestId('lab-cancel'));
+    await screen.findByText(/Simulation cancelled/);
+    expect(screen.getByTestId('lab-strategy')).toHaveTextContent('$15 unit');
+    fireEvent.click(screen.getByTestId('lab-save'));
+    const stored = JSON.parse(window.localStorage.getItem('bt:lab') ?? '[]') as Array<{ form: LabConfig; summary: { unit: number; trials: number } }>;
+    expect(stored).toHaveLength(1);
+    expect(stored[0].summary).toMatchObject({ unit: 15, trials: 30 });
+    expect(stored[0].form).toMatchObject({ unit: 15, trials: 30 });
+    // Load brings back the settings of the saved result, not the edited ones.
+    fireEvent.click(screen.getByRole('button', { name: /Load the settings of/ }));
+    expect(field('Unit').value).toBe('15');
+    expect(field('Trials').value).toBe('30');
   });
 
   it('marks the best figure per column and clears all saved runs', () => {

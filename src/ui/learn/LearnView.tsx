@@ -33,6 +33,9 @@ function LessonRoute({ id }: { id: LessonId }): ReactNode {
 }
 
 function DrillsRoute(): ReactNode {
+  useEffect(() => {
+    document.title = 'Drills — Learn — Baccarat Trainer';
+  }, []);
   return (
     <ErrorBoundary
       label="the drills"

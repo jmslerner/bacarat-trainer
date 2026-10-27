@@ -7,6 +7,7 @@ import { EOR_8_DECKS, EOR_8_DECKS_MAIN, exactProbabilities } from '@/engine';
 import { formatMoney, formatNumber, formatPercent, formatSigned, useSettings } from '@/ui/shell';
 import { Callout, Facts, LessonLink, LessonPage, LinkCard, LinkRow, Prose, Section } from './components';
 import { COUNT_EV, DRAGON7_SYSTEM, PANDA8_SYSTEM } from './countingData';
+import { drillsHash } from './registry';
 import { CountEvTable, pooledAbove } from './widgets/CountEvTable';
 import { CountWalkthrough } from './widgets/CountWalkthrough';
 import { EorTable, TagRow } from './widgets/EorTable';
@@ -137,8 +138,9 @@ export function CountingLesson(): ReactNode {
         <Prose>
           <ul>
             <li>
-              <strong>The edge is real but thin, and rare.</strong> You bet only on the few percent of hands when the count is high; most of the time you
-              sit and count, flat-betting the Banker at its usual cost or not betting at all.
+              <strong>The edge is real but thin, and rare.</strong> You bet only when the count is high — about {formatPercent(d7Pooled.frequency, 0)} of
+              hands for the Dragon 7 and {formatPercent(p8Pooled.frequency, 0)} for the Panda 8 on the simulated figures; the rest of the time you sit and
+              count, flat-betting the Banker at its usual cost or not betting at all.
             </li>
             <li>
               <strong>The variance is brutal.</strong> A 40:1 bet that hits one time in {formatNumber(1 / p.dragon7, 0)} on average — even when it is +EV —
@@ -161,10 +163,10 @@ export function CountingLesson(): ReactNode {
           </ul>
         </Prose>
         <LinkRow>
-          <LinkCard href="#lab" kicker="Strategy Lab">
+          <LinkCard href="#lab/countDragon7" kicker="Strategy Lab">
             Run the “Count Dragon 7” preset
           </LinkCard>
-          <LinkCard href="#learn/drills" kicker="Drill">
+          <LinkCard href={drillsHash('counting')} kicker="Drill">
             Practise the running count
           </LinkCard>
         </LinkRow>

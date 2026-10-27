@@ -232,22 +232,22 @@ export function MoneyLesson(): ReactNode {
           </p>
         </Prose>
         <LinkRow>
-          <LinkCard href="#lab" kicker="Lab preset">
+          <LinkCard href="#lab/flatBanker" kicker="Lab preset">
             Flat Banker
           </LinkCard>
-          <LinkCard href="#lab" kicker="Lab preset">
+          <LinkCard href="#lab/martingalePlayer" kicker="Lab preset">
             Martingale on Player
           </LinkCard>
-          <LinkCard href="#lab" kicker="Lab preset">
+          <LinkCard href="#lab/paroliStreaks" kicker="Lab preset">
             Paroli on streaks
           </LinkCard>
-          <LinkCard href="#lab" kicker="Lab preset">
+          <LinkCard href="#lab/oneThreeTwoSixBanker" kicker="Lab preset">
             1-3-2-6 Banker
           </LinkCard>
         </LinkRow>
         <Prose>
           <p>
-            Open the Lab, pick a preset from its list, press Run, and compare “realized edge” with the exact edge from{' '}
+            Each card opens the Lab with that preset already selected: press Run and compare “realized edge” with the exact edge from{' '}
             <LessonLink to="bets-and-odds">Lesson 3</LessonLink>. Then try the “Count Dragon 7” preset for the only strategy that moves the number
             the other way — <LessonLink to="counting">Lesson 7</LessonLink>.
           </p>

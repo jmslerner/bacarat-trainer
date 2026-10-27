@@ -6,6 +6,9 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
 export type LessonId = 'basics' | 'third-card' | 'bets-and-odds' | 'dragon-panda' | 'roads' | 'money' | 'counting' | 'casino-procedure';
 
+/** Drill routes under #learn/drills/<id> (the ids of the drills module, SPEC §5.6). */
+export type LessonDrillId = 'third-card' | 'payout' | 'best-bet' | 'road' | 'counting';
+
 export interface LessonMeta {
   id: LessonId;
   /** 1-based position in the course. */
@@ -18,10 +21,17 @@ export interface LessonMeta {
   minutes: number;
   /** The drill (under #learn/drills) that practises this lesson. */
   drill?: string;
+  /** The drill to open from the lesson footer; without it the footer links to the drills hub. */
+  drillId?: LessonDrillId;
 }
 
 /** Route id of the drills hub: #learn/drills. */
 export const DRILLS_ID = 'drills';
+
+/** The hash of the drills hub, or of one drill (`#learn/drills/<id>`; the hub falls back to its index for unknown ids). */
+export function drillsHash(drillId?: LessonDrillId): string {
+  return drillId ? `#learn/${DRILLS_ID}/${drillId}` : `#learn/${DRILLS_ID}`;
+}
 
 export const LESSONS: readonly LessonMeta[] = [
   {
@@ -40,6 +50,7 @@ export const LESSONS: readonly LessonMeta[] = [
     blurb: 'When the Player draws, when the Banker draws, and an explorer that explains every case.',
     minutes: 10,
     drill: 'Third-card drill',
+    drillId: 'third-card',
   },
   {
     id: 'bets-and-odds',
@@ -49,6 +60,7 @@ export const LESSONS: readonly LessonMeta[] = [
     blurb: 'Every bet with its exact probability and house edge at your table, and what a session really costs.',
     minutes: 10,
     drill: 'Payout and best-bet drills',
+    drillId: 'payout',
   },
   {
     id: 'dragon-panda',
@@ -66,6 +78,7 @@ export const LESSONS: readonly LessonMeta[] = [
     blurb: 'Bead plate, big road and the three derived roads, with live examples and the honest truth about patterns.',
     minutes: 14,
     drill: 'Road drill',
+    drillId: 'road',
   },
   {
     id: 'money',
@@ -83,6 +96,7 @@ export const LESSONS: readonly LessonMeta[] = [
     blurb: 'The Dragon 7 and Panda 8 counts: tags, running and true count, and what the count is worth.',
     minutes: 12,
     drill: 'Counting drill',
+    drillId: 'counting',
   },
   {
     id: 'casino-procedure',

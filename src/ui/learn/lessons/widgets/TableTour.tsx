@@ -3,7 +3,7 @@
  * it is, what it pays and what it costs at the active table rules. A guided tour walks through them in order.
  */
 import { useState, type ReactNode } from 'react';
-import { BET_LABELS, exactProbabilities, houseEdge, isBetEnabled, limitsFor, payoutMultiplier, winProbability, type BetType, type TableRules } from '@/engine';
+import { BET_LABELS, houseEdge, isBetEnabled, limitsFor, outcomeProbabilities, payoutMultiplier, winProbability, type BetType, type TableRules } from '@/engine';
 import { Button, Chip, cx, formatMoney, formatOdds, formatPercent } from '@/ui/shell';
 import { Facts, Widget, type FactItem } from '../components';
 import styles from './TableTour.module.css';
@@ -109,8 +109,9 @@ function betFacts(bet: BetType, rules: TableRules): FactItem[] {
     { label: 'House edge', value: formatPercent(houseEdge(bet, rules), 2), sub: 'of each bet', tone: 'negative' },
     { label: 'Limits', value: `${formatMoney(limits.min)}–${formatMoney(limits.max)}`, sub: enabled ? 'at this table' : 'not offered here' },
   ];
-  if (bet === 'banker' && rules.bankerRule === 'ez') {
-    items.splice(2, 0, { label: 'Pushes', value: formatPercent(exactProbabilities(rules.decks).tie + exactProbabilities(rules.decks).dragon7, 2), sub: 'tie or Dragon 7' });
+  if (bet === 'player' || bet === 'banker') {
+    const push = outcomeProbabilities(bet, rules).push;
+    items.splice(2, 0, { label: 'Pushes', value: formatPercent(push, 2), sub: bet === 'banker' && rules.bankerRule === 'ez' ? 'tie or Dragon 7' : 'on a tie' });
   }
   return items;
 }

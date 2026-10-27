@@ -169,7 +169,7 @@ export function RoadsLesson(): ReactNode {
           them to enjoy the shoe, keep track of what happened, and spot the Dragon 7s — not to decide what is “due”.
         </Callout>
         <LinkRow>
-          <LinkCard href="#lab" kicker="Strategy Lab">
+          <LinkCard href="#lab/paroliStreaks" kicker="Strategy Lab">
             Simulate “follow the streak” against flat Banker
           </LinkCard>
           <LinkCard href="#learn/money" kicker="Lesson 6">

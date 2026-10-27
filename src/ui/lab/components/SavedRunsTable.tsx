@@ -107,14 +107,15 @@ export function SavedRunsTable({ runs, current, maxRuns, onLoad, onRemove, onCle
               {rows.map((row) => (
                 <tr key={row.id} className={cx(row.saved === null && styles.rowCurrent)} data-testid={row.saved ? 'lab-saved-row' : 'lab-current-row'}>
                   <td className={styles.runName}>
-                    {row.name}
+                    <span className={styles.runNameText}>{row.name}</span>
                     <span className={styles.runSub}>{row.sub}</span>
                   </td>
                   <td>
                     {formatNumber(row.summary.trials)} × {formatNumber(row.summary.shoesPerTrial)}
-                    <span className={styles.runSub}>
-                      {formatMoney(row.summary.bankroll)} · unit {formatMoney(row.summary.unit)} · seed {row.summary.seed}
+                    <span className={styles.sizeSub}>
+                      {formatMoney(row.summary.bankroll)} · unit {formatMoney(row.summary.unit)}
                     </span>
+                    <span className={styles.sizeSub}>seed {row.summary.seed}</span>
                   </td>
                   {COLUMNS.map((c, i) => {
                     const v = c.value(row.summary);

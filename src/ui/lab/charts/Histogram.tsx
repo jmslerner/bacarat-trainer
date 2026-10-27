@@ -1,9 +1,9 @@
 /**
  * Histogram of final bankrolls (SVG, hand-rolled). Bars are coloured by which side of the starting bankroll
- * they sit; the start is marked with a dashed gold line. Hover a bar for its range and count; every value is
- * also in the table under the chart.
+ * they sit; the start is marked with a dashed gold line. Hover a bar (or focus the chart and use the arrow
+ * keys) for its range and count, read out in a status line; every value is also in the table under the chart.
  */
-import { useId, useMemo, useState, type PointerEvent, type ReactNode } from 'react';
+import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import type { HistogramBin } from '@/strategy';
 import { cx, formatMoney, formatMoneyCompact, formatNumber, formatPercent } from '@/ui/shell';
 import { clamp, niceTicks, scaleLinear } from './scale';
@@ -89,10 +89,25 @@ export function Histogram({ bins, start, trials, title = 'Final bankrolls', clas
     setHovered(clamp(Math.floor((value - d0) / binWidth), 0, bins.length - 1));
   };
 
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (bins.length === 0) return;
+    const last = bins.length - 1;
+    let next: number | null | undefined;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = clamp((hovered ?? -1) + 1, 0, last);
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = clamp((hovered ?? last + 1) - 1, 0, last);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = last;
+    else if (e.key === 'Escape') next = null;
+    if (next === undefined) return;
+    e.preventDefault();
+    setHovered(next);
+  };
+
   const startX = clamp(sx(start), MARGIN.left, MARGIN.left + plotW);
   const startLabelRight = startX > MARGIN.left + plotW * 0.6;
   const hoveredBin = hovered !== null ? bins[hovered] : null;
   const hoverGeom = hoveredBin ? barGeometry(hoveredBin) : null;
+  const readoutText = hoveredBin ? `${rangeLabel(hoveredBin, single)}: ${formatNumber(hoveredBin.count)} trials (${formatPercent(hoveredBin.count / total, 1)}).` : '';
 
   return (
     <figure className={cx(styles.figure, className)} aria-labelledby={`${id}-title`} data-testid="lab-histogram">
@@ -102,7 +117,14 @@ export function Histogram({ bins, start, trials, title = 'Final bankrolls', clas
         </span>
         <span className={styles.captionSub}>{formatNumber(trials)} trials · how often each finishing bankroll came up</span>
       </figcaption>
-      <div className={styles.frame}>
+      <div
+        className={styles.frame}
+        tabIndex={bins.length > 0 ? 0 : undefined}
+        role={bins.length > 0 ? 'group' : undefined}
+        aria-label={bins.length > 0 ? 'Final bankroll histogram; use the arrow keys to read each bin' : undefined}
+        onKeyDown={onKeyDown}
+        onBlur={() => setHovered(null)}
+      >
         <div ref={ref} className={styles.plot}>
           {bins.length === 0 ? (
             <p className={styles.empty}>No trials to show.</p>
@@ -166,6 +188,9 @@ export function Histogram({ bins, start, trials, title = 'Final bankrolls', clas
           )}
         </div>
       </div>
+      <p className={styles.status} role="status" data-testid="lab-histogram-readout">
+        {readoutText}
+      </p>
       <ul className={styles.legend} aria-label="Legend">
         <li>
           <span className={cx(styles.swatch, styles.swatchBelow)} aria-hidden="true" /> Finished below the start
@@ -182,6 +207,7 @@ export function Histogram({ bins, start, trials, title = 'Final bankrolls', clas
           <span className={cx(styles.key, styles.keyStart)} aria-hidden="true" /> Starting bankroll {formatMoney(start)}
         </li>
       </ul>
+      {bins.length > 0 && <p className={styles.hint}>Hover a bar, or focus the chart and use the arrow keys, to read each bin.</p>}
       <details className={styles.details}>
         <summary>Show as a table</summary>
         <div className={styles.tableWrap}>

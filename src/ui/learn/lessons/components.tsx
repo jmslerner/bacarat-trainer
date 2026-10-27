@@ -6,7 +6,7 @@ import { useEffect, type MouseEvent, type ReactNode } from 'react';
 import type { Card, Outcome, Side } from '@/engine';
 import { handTotal } from '@/engine';
 import { Button, PlayingCard, cx, toHash, useLocalStorage, type CardSize } from '@/ui/shell';
-import { DRILLS_ID, LESSONS, lessonMeta, lessonNeighbours, type LessonId } from './registry';
+import { DRILLS_ID, LESSONS, drillsHash, lessonMeta, lessonNeighbours, type LessonId } from './registry';
 import styles from './Lesson.module.css';
 
 /* ---- completion state (persisted under bt:learn:completed) ------------------------------------------------- */
@@ -103,7 +103,7 @@ export function LessonPage({ id, lede, sections, children }: LessonPageProps): R
             </Button>
           </div>
           {meta.drill && (
-            <a href={toHash('learn', DRILLS_ID)} className={styles.linkCard}>
+            <a href={drillsHash(meta.drillId)} className={styles.linkCard} data-lesson-drill={meta.drillId ?? DRILLS_ID}>
               <span className={styles.linkCardKicker}>Practise</span>
               <span>{meta.drill}</span>
             </a>

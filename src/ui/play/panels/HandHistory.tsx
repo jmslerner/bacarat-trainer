@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import type { Card } from '@/engine';
 import { cardShortLabel, cx, formatMoney, isRedSuit } from '@/ui/shell';
-import type { HistoryEntry } from '../history/historyStore';
+import { HISTORY_LIMIT, type HistoryEntry } from '../history/historyStore';
 import styles from './Panels.module.css';
 
 export interface HandHistoryProps {
@@ -25,7 +25,7 @@ function Cards({ cards }: { cards: readonly Card[] }): ReactNode {
   );
 }
 
-export function HandHistory({ entries, limit = 60 }: HandHistoryProps): ReactNode {
+export function HandHistory({ entries, limit = HISTORY_LIMIT }: HandHistoryProps): ReactNode {
   if (entries.length === 0) return <p className={styles.empty}>No hands yet — place a bet and deal.</p>;
   return (
     <ol className={styles.history} aria-label="Hand history, newest first" data-testid="hand-history">

@@ -198,6 +198,21 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 .chip[data-v="100"] { --c: #202020; }
 .chip[data-v="500"] { --c: #6c2fb3; }
 .chip[data-v="1000"] { --c: #e58a1f; }
+.chip[data-v="5000"] { --c: #6b3f22; }
+.chip[data-v="25000"] { --c: #3b6f74; }
+.chip[data-v="100000"] { --c: linear-gradient(160deg, #f6e7b4 0%, #d4af37 55%, #8a6a14 100%); color: #2b2104; text-shadow: none; border-radius: 22%; border-style: solid; border-color: #fff6d0; }
+.chip[data-len="4"] { font-size: 10px; letter-spacing: -.03em; }
+.tray button .chip[data-len="4"] { font-size: 12px; }
+.stack .chip[data-len="4"] { font-size: 9px; }
+@media (max-width: 480px) { .stack .chip[data-len="4"] { font-size: 7.5px; } }
+button.plaque { cursor: pointer; line-height: 1.2; text-align: center; }
+button.plaque:hover, button.plaque:focus-visible { background: rgba(212,175,55,.18); }
+.plaque .level { display: block; font-family: var(--font-body); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ivory-dim); margin-top: 2px; }
+.custom-limits { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: flex-end; width: 100%; }
+.custom-limits label { display: flex; flex-direction: column; gap: 3px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.custom-limits input { width: 104px; }
+#table-blurb, #table-err { width: 100%; text-align: center; }
+#table-err:empty { display: none; }
 .tray { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .tray button { background: none; border: 0; padding: 3px; border-radius: 50%; }
 .tray button .chip { width: 48px; height: 48px; font-size: 14px; transition: transform .15s; }
@@ -386,7 +401,7 @@ body:focus { outline: none; }
             <div class="shoe-meta">Shoe <b id="shoe-no">1</b> · <b id="deck-info">8 decks</b> · <b id="cards-left">0</b> of <span id="cards-total">416</span> cards left<br>Hand <b id="hand-no">0</b> · <span id="burn-info">—</span></div>
           </div>
           <div class="plaque shoe-net no-terms" id="shoe-net" data-term="shoeNet" aria-live="polite">THIS SHOE $0</div>
-          <div class="plaque" id="limits-plaque">MIN $10 · MAX $5,000</div>
+          <button type="button" class="plaque no-terms" id="limits-plaque" title="Change table level"><span id="limits-text">MIN $10 · MAX $5,000</span><span class="level" id="level-name">$10 mini-baccarat ▾</span></button>
           <div class="plaque" id="rule-plaque">EZ · NO COMMISSION</div>
         </div>
         <div class="dealer-bar" id="dealer" aria-live="polite" role="status">Place your bets</div>
@@ -429,11 +444,20 @@ body:focus { outline: none; }
           <button class="btn small" id="keys-toggle" aria-expanded="false" aria-controls="keys-hint">KEYS</button>
         </div>
         <div class="settings" id="settings" hidden>
+          <label>Table <select id="table-level"></select></label>
           <label>Decks <select id="rule-decks"><option value="8" selected>8 decks · 416 cards (standard)</option><option value="6">6 decks · 312 cards</option></select></label>
           <label>Banker rule <select id="rule-banker"><option value="ez" selected>EZ (no commission, Dragon 7 pushes)</option><option value="commission">Classic 5% commission</option><option value="super6">Super 6 (Banker 6 pays half)</option></select></label>
           <label>Tie pays <select id="rule-tie"><option value="8" selected>8 to 1</option><option value="9">9 to 1</option></select></label>
+          <div class="hint" id="table-blurb"></div>
+          <div class="custom-limits" id="table-custom" hidden>
+            <label>Main min <input type="number" id="cl-main-min" min="1" step="1"></label><label>Main max <input type="number" id="cl-main-max" min="1" step="1"></label>
+            <label>Tie min <input type="number" id="cl-tie-min" min="1" step="1"></label><label>Tie max <input type="number" id="cl-tie-max" min="1" step="1"></label>
+            <label>Side min <input type="number" id="cl-side-min" min="1" step="1"></label><label>Side max <input type="number" id="cl-side-max" min="1" step="1"></label>
+            <button type="button" class="btn small" id="table-apply">APPLY LIMITS</button>
+            <span class="err" id="table-err" aria-live="polite"></span>
+          </div>
         </div>
-        <div class="hint" id="keys-hint" hidden>Keys: <span class="kbd">1</span>–<span class="kbd">6</span> chips · <span class="kbd">P</span> Player <span class="kbd">B</span> Banker <span class="kbd">T</span> Tie <span class="kbd">D</span> Dragon 7 <span class="kbd">N</span> Panda 8 <span class="kbd">[</span> <span class="kbd">]</span> pairs · <span class="kbd">Space</span> deal <span class="kbd">R</span> rebet <span class="kbd">U</span> undo <span class="kbd">C</span> clear <span class="kbd">A</span> auto · right-click a spot to take a chip back</div>
+        <div class="hint" id="keys-hint" hidden>Keys: <span class="kbd">1</span>–<span class="kbd" id="keys-last-chip">6</span> chips · <span class="kbd">P</span> Player <span class="kbd">B</span> Banker <span class="kbd">T</span> Tie <span class="kbd">D</span> Dragon 7 <span class="kbd">N</span> Panda 8 <span class="kbd">[</span> <span class="kbd">]</span> pairs · <span class="kbd">Space</span> deal <span class="kbd">R</span> rebet <span class="kbd">U</span> undo <span class="kbd">C</span> clear <span class="kbd">A</span> auto · right-click a spot to take a chip back</div>
       </div>
     </div>
 
@@ -513,8 +537,23 @@ body:focus { outline: none; }
     <p class="callout">The Banker bet is the best bet on the table under every rule set, and EZ Baccarat makes it the cheapest of all: the casino keeps its edge by pushing the three-card 7 instead of charging commission. Dragon 7 and Panda 8 are the only bets that can turn positive, and only when the shoe runs rich in the cards they need. The Coach tracks the Dragon 7 count for you.</p>
   </div>
   <div class="panel">
+    <h2>Table levels in Las Vegas</h2>
+    <p>Limits are posted per table and change with the time of day and demand, but the tiers are consistent across the Strip. Pick one under TABLE RULES (or click the MIN / MAX plaque); the chip rack, the side-bet caps and the suggested buy-in follow.</p>
+    <div class="scroll-x"><table>
+      <thead><tr><th>Table</th><th>Player / Banker</th><th>Tie</th><th>Dragon 7, Panda 8, pairs</th><th>Where you find it</th></tr></thead>
+      <tbody>
+        <tr><td>$10 mini-baccarat</td><td>$10–$5,000</td><td>$10–$1,000</td><td>$5–$500</td><td>Most Strip and off-Strip mini-bac tables; downtown goes as low as $5.</td></tr>
+        <tr><td>$25 main floor</td><td>$25–$10,000</td><td>$25–$2,500</td><td>$10–$1,000</td><td>Strip mini-bac on evenings and weekends.</td></tr>
+        <tr><td>$100 midi-baccarat</td><td>$100–$25,000</td><td>$100–$5,000</td><td>$25–$2,500</td><td>The main baccarat pit; $25,000 is the usual posted ceiling on the Strip.</td></tr>
+        <tr><td>$500 high-limit salon</td><td>$500–$100,000</td><td>$500–$10,000</td><td>$100–$5,000</td><td>Salons at Bellagio, Wynn, Aria, Caesars Palace and the Venetian; limits above the posted $25,000 are set for rated players.</td></tr>
+        <tr><td>$5,000 special limit</td><td>$5,000–$250,000</td><td>$5,000–$25,000</td><td>$1,000–$10,000</td><td>By arrangement for the biggest players; up to $500,000 a hand is reported but rare.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="callout">Side bets are always capped far below the main bets because of their 40 to 1 and 25 to 1 payouts. Whatever the table, the house edge on each bet is the same; only the size of the swings changes.</p>
+  </div>
+  <div class="panel">
     <h2>Casino procedure, as simulated</h2>
-    <p>Eight standard 52-card decks, 416 cards in all, are shuffled together and dealt from a shoe. That is the configuration at the vast majority of land-based and online punto banco tables, and it is the default here; a 6-deck shoe (312 cards) can be selected under the table, and the Coach and the payout table switch to the exact 6-deck house edges when it is. A cut card is placed 14 cards from the end. The first card is turned up and its value (face cards count 10) says how many cards are burned. When the cut card comes out during a hand, that hand finishes, one more hand is dealt, and the shoe is replaced. Third cards are placed sideways, as the dealer does. Table limits are $10–$5,000 on Player, Banker and Tie, and $5–$500 on Dragon 7, Panda 8 and the pairs. Commission (classic rule) is taken from each winning Banker payout.</p>
+    <p>Eight standard 52-card decks, 416 cards in all, are shuffled together and dealt from a shoe. That is the configuration at the vast majority of land-based and online punto banco tables, and it is the default here; a 6-deck shoe (312 cards) can be selected under the table, and the Coach and the payout table switch to the exact 6-deck house edges when it is. A cut card is placed 14 cards from the end. The first card is turned up and its value (face cards count 10) says how many cards are burned. When the cut card comes out during a hand, that hand finishes, one more hand is dealt, and the shoe is replaced. Third cards are placed sideways, as the dealer does. <span id="rules-limits">Table limits at the $10 mini-baccarat table: Player and Banker $10–$5,000, Tie $10–$1,000, Dragon 7, Panda 8 and the pairs $5–$500.</span> Commission (classic rule) is taken from each winning Banker payout.</p>
     <p class="callout">The Dragon 7 count: 4, 5, 6 and 7 count −1 as they leave the shoe; 8 and 9 count +2; everything else 0. Divide the running count by the decks left to get the true count. At a true count of 4 or more, the Dragon 7 bet is worth more than it costs. Below that, it is a 7.6% tax.</p>
   </div>
 </section>
@@ -815,14 +854,94 @@ function particles(kind) {
 }
 const fmt$ = (n) => (n < 0 ? '-' : '') + '$' + Math.abs(Math.round(n)).toLocaleString();
 const fmtNet = (n) => (n > 0 ? '+' : n < 0 ? '-' : '') + '$' + Math.abs(Math.round(n * 100) / 100).toLocaleString();
-const LIMITS = { main: [10, 5000], tie: [10, 5000], side: [5, 500] };
-const limitFor = (bet) => bet === 'player' || bet === 'banker' ? LIMITS.main : bet === 'tie' ? LIMITS.tie : LIMITS.side;
+// ---------- table levels (stakes) ----------
+const CHIP_LADDER = [1, 5, 25, 100, 500, 1000, 5000, 25000, 100000];
+const CHIP_META = { 1: ['1', 'white'], 5: ['5', 'red'], 25: ['25', 'green'], 100: ['100', 'black'], 500: ['500', 'purple'], 1000: ['1K', 'orange'], 5000: ['5K', 'brown'], 25000: ['25K', 'teal'], 100000: ['100K', 'gold plaque'] };
+const MAX_LIMIT = 1000000;
+const TABLE_LEVELS = [
+  { id: 'mini', name: '$10 mini-baccarat', limits: { main: [10, 5000], tie: [10, 1000], side: [5, 500] }, chips: [1, 5, 25, 100, 500, 1000], buyIn: 1000, blurb: 'The most common table on and off the Strip.' },
+  { id: 'floor', name: '$25 main floor', limits: { main: [25, 10000], tie: [25, 2500], side: [10, 1000] }, chips: [5, 25, 100, 500, 1000, 5000], buyIn: 2500, blurb: 'Strip mini-bac on evenings and weekends; $5,000 chips appear.' },
+  { id: 'midi', name: '$100 midi-baccarat', limits: { main: [100, 25000], tie: [100, 5000], side: [25, 2500] }, chips: [25, 100, 500, 1000, 5000, 25000], buyIn: 10000, blurb: 'The main baccarat pit; $25,000 is the usual posted ceiling on the Strip.' },
+  { id: 'high', name: '$500 high-limit salon', limits: { main: [500, 100000], tie: [500, 10000], side: [100, 5000] }, chips: [100, 500, 1000, 5000, 25000, 100000], buyIn: 50000, blurb: 'Salon play with limits raised for rated players.' },
+  { id: 'private', name: '$5,000 special limit', limits: { main: [5000, 250000], tie: [5000, 25000], side: [1000, 10000] }, chips: [1000, 5000, 25000, 100000], buyIn: 500000, blurb: 'By arrangement only: the top of what Las Vegas grants.' },
+];
+const limitFor = (bet) => { const L = S.table.limits; return bet === 'player' || bet === 'banker' ? L.main : bet === 'tie' ? L.tie : L.side; };
+const range$ = (pair) => fmt$(pair[0]) + '–' + fmt$(pair[1]);
+function deriveChips(mainMin, mainMax) {
+  let i = 0; for (let k = 0; k < CHIP_LADDER.length; k++) if (CHIP_LADDER[k] <= mainMin) i = k;
+  const chips = CHIP_LADDER.slice(Math.max(0, i - 1), Math.max(0, i - 1) + 6).filter((v) => v <= mainMax);
+  return chips.length ? chips : [CHIP_LADDER[0]];
+}
+const suggestBuyIn = (mainMin) => mainMin * 100;
+const levelById = (id) => TABLE_LEVELS.find((t) => t.id === id);
+function validateLimits(L) {
+  const pairs = [['main', 'Main'], ['tie', 'Tie'], ['side', 'Side-bet']];
+  if (!L || typeof L !== 'object') return 'Limits are missing';
+  for (const [k, label] of pairs) {
+    const p = L[k];
+    if (!Array.isArray(p) || p.length !== 2 || !p.every((v) => Number.isInteger(v) && v >= 1)) return label + ' limits must be whole dollars of at least $1';
+    if (p[0] > p[1]) return label + ' maximum must be at least the ' + label.toLowerCase() + ' minimum';
+    if (p[1] > MAX_LIMIT) return label + ' maximum cannot exceed ' + fmt$(MAX_LIMIT);
+  }
+  if (L.side[0] > L.main[0]) return 'Side-bet minimum cannot exceed the main minimum';
+  if (L.tie[0] > L.main[0]) return 'Tie minimum cannot exceed the main minimum';
+  const smallest = deriveChips(L.main[0], L.main[1])[0];
+  if (smallest > L.tie[1] || smallest > L.side[1]) return 'With a ' + fmt$(L.main[0]) + ' main minimum the smallest chip is ' + fmt$(smallest) + '; Tie and side-bet maximums must be at least that';
+  return null;
+}
+const customLevel = (L) => ({ id: 'custom', name: 'Custom', limits: L, chips: deriveChips(L.main[0], L.main[1]), buyIn: suggestBuyIn(L.main[0]), blurb: 'Your own limits.' });
+const defaultChip = (t) => t.chips.includes(25) ? 25 : (t.chips.find((v) => v >= t.limits.main[0]) || t.chips[t.chips.length - 1]);
+const chipLabel = (v) => CHIP_META[v] ? CHIP_META[v][0] : String(v);
+const chipHTML = (v, extraCls, styleAttr) => '<span class="chip' + (extraCls || '') + '" data-v="' + v + '" data-len="' + chipLabel(v).length + '"' + (styleAttr || '') + '>' + chipLabel(v) + '</span>';
+const limitsSentence = (t) => 'Player and Banker ' + range$(t.limits.main) + ', Tie ' + range$(t.limits.tie) + ', Dragon 7, Panda 8 and the pairs ' + range$(t.limits.side);
+const chipsSentence = (t) => 'This table\'s chips: ' + t.chips.map((v) => (CHIP_META[v] ? CHIP_META[v][1] : '') + ' ' + fmt$(v)).join(', ').trim() + '. Select one, then click a betting spot; right-click a spot to take a chip back.';
+function setTable(t) { S.table = t; S.selectedChip = defaultChip(t); }
+function setBankroll(amount) { const delta = amount - S.bankroll; S.bankroll = amount; S.startBankroll += delta; S.stats.peak += delta; S.stats.low += delta; }
+function saveTableChoice(t) { try { localStorage.setItem('bt-demo:table', JSON.stringify(t.id === 'custom' ? { id: 'custom', limits: t.limits } : { id: t.id })); } catch (err) { /* storage unavailable */ } }
+function loadTableChoice() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('bt-demo:table') || 'null');
+    if (raw && raw.id === 'custom' && validateLimits(raw.limits) === null) return customLevel(raw.limits);
+    if (raw && levelById(raw.id)) return levelById(raw.id);
+  } catch (err) { /* corrupt or unavailable storage */ }
+  return TABLE_LEVELS[0];
+}
+function buildTableOptions() {
+  $('table-level').innerHTML = TABLE_LEVELS.map((t) => '<option value="' + t.id + '">' + t.name + ' · ' + range$(t.limits.main) + '</option>').join('') + '<option value="custom">Custom limits…</option>';
+}
+function readCustomForm() { const n = (id) => Number($(id).value); return { main: [n('cl-main-min'), n('cl-main-max')], tie: [n('cl-tie-min'), n('cl-tie-max')], side: [n('cl-side-min'), n('cl-side-max')] }; }
+function fillCustomForm(L) { $('cl-main-min').value = L.main[0]; $('cl-main-max').value = L.main[1]; $('cl-tie-min').value = L.tie[0]; $('cl-tie-max').value = L.tie[1]; $('cl-side-min').value = L.side[0]; $('cl-side-max').value = L.side[1]; }
+function renderTable() {
+  const t = S.table, L = t.limits;
+  $('limits-text').textContent = 'MIN ' + fmt$(L.main[0]) + ' · MAX ' + fmt$(L.main[1]);
+  $('level-name').textContent = t.name + ' ▾';
+  $('buyin').textContent = 'BUY IN +' + fmt$(t.buyIn);
+  $('table-level').value = t.id;
+  $('table-custom').hidden = t.id !== 'custom';
+  if (t.id === 'custom') fillCustomForm(L);
+  $('table-blurb').textContent = t.blurb + ' ' + limitsSentence(t) + '. Suggested buy-in ' + fmt$(t.buyIn) + '.';
+  $('keys-last-chip').textContent = String(t.chips.length);
+  $('rules-limits').textContent = 'Table limits at the ' + t.name + ' table: ' + limitsSentence(t) + '.';
+  document.querySelectorAll('dd[data-g]').forEach((dd) => { dd.textContent = GLOSSARY[dd.dataset.g].text; });
+  if (!$('lab-unit').dataset.touched) $('lab-unit').value = Math.max(L.main[0], 25);
+  if (!$('lab-bankroll').dataset.touched) $('lab-bankroll').value = t.buyIn;
+  renderTray();
+}
+function applyTable(t) {
+  if (S.animating) { renderTable(); return 'Wait for the hand to finish'; }
+  const had = betsTotal(S.bets) > 0;
+  S.auto = false; S.bets = {}; S.chipStack = []; S.lastBets = {}; S.settledDisplay = false;
+  setTable(t); setBankroll(t.buyIn); saveTableChoice(t);
+  renderTable(); renderAll();
+  say('Moved to the ' + t.name + ' table' + (had ? ' — chips returned' : '') + '. ' + limitsSentence(t) + '. Bought in for ' + fmt$(t.buyIn) + '.');
+  return null;
+}
 const BET_NAMES = { player: 'Player', banker: 'Banker', tie: 'Tie', dragon7: 'Dragon 7', panda8: 'Panda 8', playerPair: 'Player Pair', bankerPair: 'Banker Pair' };
 const SPEEDS = { instant: 0, fast: 260, normal: 650, slow: 1100 };
-const CHIPS = [1, 5, 25, 100, 500, 1000];
 
 const S = {
   rules: { decks: 8, banker: 'ez', tiePays: 8, cutFromEnd: 14, burn: true },
+  table: null,
   bankroll: 1000, startBankroll: 1000, bets: {}, chipStack: [], lastBets: {},
   shoe: null, shoeNumber: 0, results: [], seen: [], handsInShoe: 0, lastHandNext: false, shoeNet: 0, shoeWagered: 0,
   history: [], selectedChip: 25, speed: 'normal', settledDisplay: false, lastPlacedBet: null, auto: false, animating: false, seed: (Math.random() * 2 ** 31) | 0, rand: null,
@@ -851,10 +970,10 @@ function say(msg, bonus) { const d = $('dealer'); d.textContent = msg; d.classLi
 // ---------- betting ----------
 function placeBet(bet, amount) {
   if (S.animating) return 'Wait for the hand to finish';
-  const [, max] = limitFor(bet);
+  const [min, max] = limitFor(bet);
   const cur = S.bets[bet] || 0;
   if (cur + amount > max) return BET_NAMES[bet] + ' maximum is ' + fmt$(max);
-  if (betsTotal(S.bets) + amount > S.bankroll) return 'Not enough bankroll for that chip (' + fmt$(S.bankroll - betsTotal(S.bets)) + ' available)';
+  if (betsTotal(S.bets) + amount > S.bankroll) return S.bankroll < min ? 'Bankroll ' + fmt$(S.bankroll) + ' is below the ' + fmt$(min) + ' table minimum — press BUY IN +' + fmt$(S.table.buyIn) : 'Not enough bankroll for that chip (' + fmt$(S.bankroll - betsTotal(S.bets)) + ' available)';
   S.bets[bet] = cur + amount; S.chipStack.push({ bet, amount }); S.lastPlacedBet = bet;
   betsChanged(); return null;
 }
@@ -968,12 +1087,12 @@ function renderBankroll() {
   const el = $('bankroll'); el.textContent = fmt$(S.bankroll);
   el.className = S.bankroll > S.startBankroll ? 'up' : S.bankroll < S.startBankroll ? 'down' : '';
 }
-function chipBreakdown(amount) { const out = []; let rest = Math.round(amount); for (const v of [...CHIPS].reverse()) { while (rest >= v && out.length < 8) { out.push(v); rest -= v; } } if (!out.length) out.push(CHIPS[0]); return out; }
+function chipBreakdown(amount) { const out = []; let rest = Math.round(amount); for (const v of [...S.table.chips].reverse()) { while (rest >= v && out.length < 8) { out.push(v); rest -= v; } } if (!out.length) out.push(S.table.chips[0]); return out; }
 const fmtMoney = (n) => '$' + (Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2));
 // A stack of casino chips: largest denominations at the bottom, the top chip shows its value, the total sits under the stack.
 function chipStackHTML(amount, cls, animateTop) {
   const chips = chipBreakdown(amount);
-  return '<span class="' + cls + '" style="--n:' + chips.length + '">' + chips.map((v, i) => '<span class="chip' + (animateTop && i === chips.length - 1 ? ' drop' : '') + '" data-v="' + v + '" style="--i:' + i + '">' + (v >= 1000 ? '1K' : v) + '</span>').join('') + '<span class="amt">' + (cls.indexOf('win') >= 0 ? '+' : '') + fmtMoney(amount) + '</span></span>';
+  return '<span class="' + cls + '" style="--n:' + chips.length + '">' + chips.map((v, i) => chipHTML(v, animateTop && i === chips.length - 1 ? ' drop' : '', ' style="--i:' + i + '"')).join('') + '<span class="amt">' + (cls.indexOf('win') >= 0 ? '+' : '') + fmtMoney(amount) + '</span></span>';
 }
 function renderBetsFrom(bets) {
   document.querySelectorAll('.spot').forEach((spot) => {
@@ -990,7 +1109,7 @@ function renderButtons() {
   $('undo').disabled = S.animating || !S.chipStack.length;
   $('clear').disabled = S.animating || !betsTotal(S.bets);
   $('auto').setAttribute('aria-pressed', String(S.auto)); $('auto').classList.toggle('on', S.auto);
-  $('newshoe').disabled = S.animating; $('rule-banker').disabled = S.animating; $('rule-tie').disabled = S.animating; $('rule-decks').disabled = S.animating;
+  $('newshoe').disabled = S.animating; $('rule-banker').disabled = S.animating; $('rule-tie').disabled = S.animating; $('rule-decks').disabled = S.animating; $('table-level').disabled = S.animating; $('table-apply').disabled = S.animating;
   document.querySelectorAll('.spot').forEach((s) => { s.disabled = S.animating; });
 }
 function renderShoe() {
@@ -1004,9 +1123,9 @@ function renderShoe() {
 function renderTray() {
   const tray = $('tray');
   tray.querySelectorAll('button').forEach((b) => b.remove());
-  CHIPS.forEach((v, i) => {
-    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(v === S.selectedChip)); b.setAttribute('aria-label', '$' + v + ' chip (key ' + (i + 1) + ')'); b.dataset.term = 'chips'; b.classList.add('no-terms');
-    b.innerHTML = '<span class="chip" data-v="' + v + '">' + (v >= 1000 ? '1K' : v) + '</span>';
+  S.table.chips.forEach((v, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(v === S.selectedChip)); b.setAttribute('aria-label', fmt$(v) + ' chip (key ' + (i + 1) + ')'); b.dataset.term = 'chips'; b.classList.add('no-terms');
+    b.innerHTML = chipHTML(v);
     b.addEventListener('click', () => { S.selectedChip = v; renderTray(); });
     tray.appendChild(b);
   });
@@ -1120,7 +1239,16 @@ $('undo').addEventListener('click', undoChip);
 $('clear').addEventListener('click', clearBets);
 $('auto').addEventListener('click', () => { S.auto = !S.auto; renderButtons(); if (S.auto) { if (betsTotal(S.bets) && !canDeal()) deal(); else if (betsTotal(S.lastBets)) autoNext(); else { S.auto = false; renderButtons(); showErr('Place a bet first, then turn on AUTO to repeat it every hand'); } } });
 $('newshoe').addEventListener('click', () => { if (S.animating) return; newShoe(true); renderAll(); });
-$('buyin').addEventListener('click', () => { S.bankroll += 1000; S.startBankroll += 1000; S.stats.peak = Math.max(S.stats.peak, S.bankroll); renderBankroll(); renderButtons(); renderCoach(); say('Buy-in: ' + fmt$(1000) + ' added to your bankroll'); });
+$('buyin').addEventListener('click', () => { const amt = S.table.buyIn; setBankroll(S.bankroll + amt); showErr(''); renderBankroll(); renderButtons(); renderCoach(); renderStats(); say('Buy-in: ' + fmt$(amt) + ' added to your bankroll'); });
+$('table-level').addEventListener('change', (e) => {
+  const id = e.target.value; e.target.blur();
+  if (id === 'custom') { $('table-custom').hidden = false; fillCustomForm(S.table.limits); $('table-err').textContent = ''; $('cl-main-min').focus(); return; }
+  showErr(applyTable(levelById(id)));
+});
+$('table-apply').addEventListener('click', () => { const L = readCustomForm(), why = validateLimits(L); $('table-err').textContent = why || ''; if (!why) showErr(applyTable(customLevel(L))); });
+$('table-custom').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('table-apply').click(); } });
+$('limits-plaque').addEventListener('click', () => { $('settings').hidden = false; $('settings-toggle').setAttribute('aria-expanded', 'true'); $('table-level').focus(); });
+['lab-unit', 'lab-bankroll'].forEach((id) => $(id).addEventListener('input', (e) => { e.target.dataset.touched = '1'; }));
 $('rule-banker').addEventListener('change', (e) => { S.rules.banker = e.target.value; e.target.blur(); newShoe(true); renderAll(); });
 $('rule-decks').addEventListener('change', (e) => { S.rules.decks = Number(e.target.value); e.target.blur(); newShoe(true); renderAll(); });
 document.querySelectorAll('#speed-seg button').forEach((b) => b.addEventListener('click', () => { S.speed = b.dataset.speed; document.querySelectorAll('#speed-seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
@@ -1145,7 +1273,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape') { hideTip(); if (S.auto) { S.auto = false; renderButtons(); say('Auto-deal stopped'); } return; }
   const single = ev.key.length === 1;
   const chipIdx = single ? '123456'.indexOf(ev.key) : -1;
-  if (chipIdx >= 0) { S.selectedChip = CHIPS[chipIdx]; renderTray(); ev.preventDefault(); return; }
+  if (chipIdx >= 0) { if (chipIdx < S.table.chips.length) { S.selectedChip = S.table.chips[chipIdx]; renderTray(); } ev.preventDefault(); return; }
   if (ev.repeat) return;
   const k = single ? ev.key.toLowerCase() : ev.key;
   const map = { p: 'player', b: 'banker', t: 'tie', d: 'dragon7', n: 'panda8', '[': 'playerPair', ']': 'bankerPair' };
@@ -1191,7 +1319,7 @@ function simulate(cfg, onProgress, done) {
         const shoe = new Shoe(cfg.rules.decks || 8, rand, 14, true, s + 1); let last = false, hn = 0;
         while (!ruined) {
           if (shoe.remaining() < 6) break;
-          let bet = Math.min(sys.next(), 5000);
+          let bet = Math.min(Math.max(sys.next(), cfg.minBet || 1), cfg.maxBet || 5000);
           if (bet > bank) { if (bank < cfg.unit) { ruined = true; break; } bet = bank; }
           const r = dealHand(shoe, ++hn, false);
           const st = settle({ [cfg.side]: bet }, r, cfg.rules);
@@ -1216,11 +1344,15 @@ function simulate(cfg, onProgress, done) {
   };
   chunk();
 }
+function labConfig() {
+  const L = S.table.limits.main;
+  return { side: $('lab-side').value, system: $('lab-system').value, unit: Math.max(1, Number($('lab-unit').value) || L[0]), bankroll: Math.max(1, Number($('lab-bankroll').value) || S.table.buyIn), shoes: Math.min(200, Math.max(1, Number($('lab-shoes').value) || 10)), trials: Math.min(5000, Math.max(10, Number($('lab-trials').value) || 500)), seed: Number($('lab-seed').value) || 1, rules: S.rules, minBet: L[0], maxBet: L[1] };
+}
 $('lab-run').addEventListener('click', () => {
-  const cfg = { side: $('lab-side').value, system: $('lab-system').value, unit: Math.max(1, Number($('lab-unit').value) || 25), bankroll: Math.max(1, Number($('lab-bankroll').value) || 1000), shoes: Math.min(200, Math.max(1, Number($('lab-shoes').value) || 10)), trials: Math.min(5000, Math.max(10, Number($('lab-trials').value) || 500)), seed: Number($('lab-seed').value) || 1, rules: S.rules };
+  const cfg = labConfig();
   $('lab-run').disabled = true; $('lab-status').textContent = 'Simulating…'; $('lab-results').innerHTML = ''; $('lab-chart').hidden = true;
   simulate(cfg, (p) => { $('lab-prog').style.width = (p * 100).toFixed(0) + '%'; }, (res) => {
-    $('lab-run').disabled = false; $('lab-status').textContent = res.hands.toLocaleString() + ' hands simulated';
+    $('lab-run').disabled = false; $('lab-status').textContent = res.hands.toLocaleString() + ' hands simulated · bets kept within ' + fmt$(cfg.minBet) + '–' + fmt$(cfg.maxBet) + ' (' + S.table.name + ')';
     const exact = houseEdge(cfg.side, cfg.rules);
     const tiles = [['Mean final bankroll', fmt$(res.mean)], ['Median final', fmt$(res.median)], ['P(finish ahead)', (res.pProfit * 100).toFixed(1) + '%'], ['P(ruin)', (res.pRuin * 100).toFixed(1) + '%'], ['Realized house take', (res.realizedEdge * 100).toFixed(2) + '%'], ['Exact house edge', (exact * 100).toFixed(2) + '%'], ['5th / 95th percentile', fmt$(res.p5) + ' / ' + fmt$(res.p95)], ['Mean max drawdown', fmt$(res.meanDD)]];
     $('lab-results').innerHTML = tiles.map(([k, v]) => '<div class="tile"><small>' + k + '</small><strong>' + v + '</strong></div>').join('');
@@ -1275,8 +1407,8 @@ const GLOSSARY = {
   scoreboard: { title: 'Scoreboard', aliases: ['scoreboard'], text: 'The electronic display at every baccarat table: bead plate, big road and the three derived roads. It records the past; it does not predict the future.' },
   realized: { title: 'Realized house take', aliases: ['realized house take', 'realized'], text: 'Your actual loss divided by everything you wagered. Over a long run it converges on the house edge.' },
   bankroll: { title: 'Bankroll', aliases: ['bankroll'], text: 'The money you have at the table. Chips on the layout leave it when the hand is dealt and come back with winnings when the hand settles.' },
-  limits: { title: 'Table limits', aliases: ['table limits', 'limits', 'minimum', 'maximum'], text: 'Player, Banker and Tie: $10 to $5,000. Dragon 7, Panda 8 and the pairs: $5 to $500. The minimum is checked when you deal, the maximum when you place chips.' },
-  chips: { title: 'Chips', aliases: ['chips', 'chip'], text: 'Standard casino colours: white $1, red $5, green $25, black $100, purple $500, orange $1,000. Select one, then click a betting spot; right-click a spot to take a chip back.' },
+  limits: { title: 'Table limits', aliases: ['table limits', 'limits', 'minimum', 'maximum'], get text() { const t = S.table || TABLE_LEVELS[0]; return 'At the ' + t.name + ' table: ' + limitsSentence(t) + '. The minimum is checked when you deal, the maximum when you place chips. Change tables under TABLE RULES or by clicking the MIN / MAX plaque.'; } },
+  chips: { title: 'Chips', aliases: ['chips', 'chip'], get text() { return chipsSentence(S.table || TABLE_LEVELS[0]); } },
   unit: { title: 'Unit', aliases: ['units', 'unit'], text: 'The base bet a system works from. A flat bettor bets one unit every hand.' },
   drawdown: { title: 'Drawdown', aliases: ['drawdown'], text: 'How far the bankroll fell from its highest point. The mean max drawdown is the average worst dip across trials.' },
   ruin: { title: 'Ruin', aliases: ['ruin'], text: 'Running out of money: the bankroll fell below one unit before the trial ended.' },
@@ -1356,14 +1488,15 @@ document.querySelector('.shoe-box').dataset.term = 'shoe';
 // Glossary section in Rules
 const gl = document.createElement('div'); gl.className = 'panel glossary';
 gl.innerHTML = '<h2>Glossary</h2><p>Hover any underlined word anywhere in the app for the same explanation. Tap it on a touch screen; tap again to dismiss.</p><dl class="no-terms">' +
-  Object.values(GLOSSARY).map((g) => '<dt>' + g.title + '</dt><dd>' + g.text + '</dd>').join('') + '</dl>';
+  Object.entries(GLOSSARY).map(([k, g]) => '<dt>' + g.title + '</dt><dd data-g="' + k + '">' + g.text + '</dd>').join('') + '</dl>';
 $('view-rules').appendChild(gl);
 annotateTerms(document.body);
 
 // ---------- boot ----------
 document.querySelector('.spot[data-bet="dragon7"] .name').insertAdjacentHTML('afterbegin', '<span class="medal-sm">' + MEDALS.dragon7.replace(/id="(\w+)"/g, 'id="$1s"').replace(/url\(#(\w+)\)/g, 'url(#$1s)') + '</span>');
 document.querySelector('.spot[data-bet="panda8"] .name').insertAdjacentHTML('afterbegin', '<span class="medal-sm">' + MEDALS.panda8.replace(/id="(\w+)"/g, 'id="$1s"').replace(/url\(#(\w+)\)/g, 'url(#$1s)') + '</span>');
-renderTray(); newShoe(true); renderAll(); route();
+setTable(loadTableChoice()); S.bankroll = S.startBankroll = S.stats.peak = S.stats.low = S.table.buyIn; buildTableOptions(); renderTable();
+newShoe(true); renderAll(); route();
 try { document.body.tabIndex = -1; document.body.focus({ preventScroll: true }); } catch (err) { /* focus may be refused inside an embedded viewer */ }
 updateFocusHint();
 </script>

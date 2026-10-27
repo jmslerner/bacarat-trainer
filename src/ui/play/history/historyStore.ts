@@ -55,7 +55,8 @@ export function recordHand(result: HandResult, settlement: HandSettlement, total
     result,
     settlement,
   };
-  const entries = [entry, ...state.entries].slice(0, HISTORY_LIMIT);
+  // Idempotent: a hand already seeded for this slot (same key) is replaced by the entry that knows its net.
+  const entries = [entry, ...state.entries.filter((e) => e.key !== entry.key)].slice(0, HISTORY_LIMIT);
   set({ entries, totalHands, seed });
 }
 

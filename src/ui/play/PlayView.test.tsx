@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { DEFAULT_RULES, RULE_PRESETS, totalOnLayout } from '@/engine';
-import { buyInStore, DEFAULT_PREFS, getSession, prefsStore, resetSession, rulesStore } from '@/ui/shell';
+import { buyInStore, DEFAULT_PREFS, getDisplayedBankroll, getSession, prefsStore, resetSession, rulesStore } from '@/ui/shell';
 import { PlayView } from './PlayView';
 import { clearHistory } from './history/historyStore';
 
@@ -10,6 +10,18 @@ function setup(opts: { bankroll?: number; seed?: number } = {}) {
   const session = resetSession({ bankroll: opts.bankroll ?? 1000, seed: opts.seed ?? 42 });
   const utils = render(<PlayView />);
   return { session, ...utils };
+}
+
+// jsdom has no PointerEvent: a minimal one so `pointerType` / `button` reach the spot's pointer handlers.
+if (typeof window.PointerEvent === 'undefined') {
+  class PointerEventShim extends MouseEvent {
+    readonly pointerType: string;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerType = init.pointerType ?? '';
+    }
+  }
+  (window as unknown as { PointerEvent: typeof PointerEventShim }).PointerEvent = PointerEventShim;
 }
 
 const spot = (bet: string): HTMLButtonElement => document.querySelector(`[data-bet="${bet}"]`) as HTMLButtonElement;
@@ -87,6 +99,70 @@ describe('PlayView — betting', () => {
     fireEvent.click(spot('player'));
     expect(dealButton().disabled).toBe(true);
     expect(screen.getByTestId('deal-reason').textContent).toBe('Player bet of $5 is below the table minimum of $10');
+  });
+
+  it('a touch long press takes one chip back — and the context menu the browser adds to it does not take a second', () => {
+    vi.useFakeTimers();
+    const { session } = setup();
+    fireEvent.click(spot('player'));
+    fireEvent.click(spot('player'));
+    fireEvent.click(spot('player'));
+    expect(session.getState().bets).toEqual({ player: 75 });
+    // Long press, then the synthesized contextmenu and the click that ends the press.
+    fireEvent.pointerDown(spot('player'), { pointerType: 'touch', button: 0 });
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(session.getState().bets).toEqual({ player: 50 });
+    fireEvent.contextMenu(spot('player'));
+    fireEvent.pointerUp(spot('player'), { pointerType: 'touch' });
+    fireEvent.click(spot('player'));
+    expect(session.getState().bets).toEqual({ player: 50 });
+    // The other order (contextmenu before the press timer fires): still exactly one chip.
+    fireEvent.pointerDown(spot('player'), { pointerType: 'touch', button: 0 });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    fireEvent.contextMenu(spot('player'));
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    fireEvent.pointerUp(spot('player'), { pointerType: 'touch' });
+    fireEvent.click(spot('player'));
+    expect(session.getState().bets).toEqual({ player: 25 });
+    // A mouse button held down is not a long press: the right button takes chips back with a mouse.
+    fireEvent.pointerDown(spot('player'), { pointerType: 'mouse', button: 0 });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    fireEvent.pointerUp(spot('player'), { pointerType: 'mouse' });
+    expect(session.getState().bets).toEqual({ player: 25 });
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    fireEvent.contextMenu(spot('player'));
+    expect(session.getState().bets).toEqual({});
+  });
+
+  it('Space deals even when a spot was just clicked with the mouse; after Tab it is left to the focused control', () => {
+    const { session } = setup({ bankroll: 1000, seed: 42 });
+    fireEvent.pointerDown(spot('player'));
+    fireEvent.click(spot('player'));
+    spot('player').focus();
+    expect(session.getState().bets).toEqual({ player: 25 });
+    act(() => {
+      fireEvent.keyDown(spot('player'), { key: ' ' });
+    });
+    expect(session.getState().totalHands).toBe(1);
+    expect(session.getState().bets).toEqual({});
+    // Keyboard modality: a Tab-focused spot keeps its native Space (the browser presses it; jsdom does not).
+    fireEvent.keyDown(window, { key: 'Tab' });
+    spot('banker').focus();
+    fireEvent.keyDown(window, { key: 'r' });
+    expect(session.getState().bets).toEqual({ player: 25 });
+    expect(fireEvent.keyDown(spot('banker'), { key: ' ' })).toBe(true);
+    expect(session.getState().totalHands).toBe(1);
+    fireEvent.pointerDown(document.body);
   });
 });
 
@@ -211,6 +287,74 @@ describe('PlayView — dealing (instant)', () => {
     expect(within(screen.getByTestId('hand-history')).getAllByRole('listitem')).toHaveLength(hands);
   });
 
+  it('AUTO at an animated speed never leaks a hand into the roads, bankroll or history before it is dealt', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'fast', sound: false });
+    const { session } = setup({ bankroll: 1000, seed: 7 });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    fireEvent.click(spot('banker'));
+    act(() => {
+      fireEvent.keyDown(window, { key: 'a' });
+    });
+    const scoreboardHands = (): string => screen.getByText(/^Hand \d+$/).textContent ?? '';
+    let dealt = 0;
+    for (let i = 0; i < 3000 && session.getState().totalHands < 4; i++) {
+      act(() => {
+        vi.advanceTimersByTime(10);
+      });
+      const hands = session.getState().totalHands;
+      if (hands > dealt) {
+        // The engine has settled hand N; the table must still show hand N−1 everywhere until the cards are out.
+        dealt = hands;
+        expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('dealing');
+        expect(scoreboardHands()).toBe(`Hand ${hands - 1}`);
+        expect(tableBankroll()).toBe(`$${(session.getState().bankroll - session.getState().lastHand!.settlement.net).toLocaleString('en-US')}`);
+        const list = screen.queryByTestId('hand-history');
+        expect(list ? within(list).getAllByRole('listitem') : []).toHaveLength(hands - 1);
+        expect(screen.getByTestId('history-panel').textContent).not.toMatch(new RegExp(`#${hands}\\b`));
+      }
+    }
+    act(() => {
+      fireEvent.keyDown(window, { key: 'a' });
+    });
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    const total = session.getState().totalHands;
+    expect(total).toBeGreaterThanOrEqual(4);
+    const rows = within(screen.getByTestId('hand-history')).getAllByRole('listitem');
+    expect(rows).toHaveLength(total);
+    expect(new Set(rows.map((r) => r.getAttribute('aria-label'))).size).toBe(total);
+    expect(scoreboardHands()).toBe(`Hand ${total}`);
+  });
+
+  it('publishes the bankroll it displays for the top bar: the pre-deal figure while the hand plays, the live figure after, nothing once unmounted', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'fast', sound: false });
+    const { session, unmount } = setup({ bankroll: 1000, seed: 7 });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(getDisplayedBankroll()).toEqual({ bankroll: 1000, net: 0 });
+    fireEvent.click(spot('banker'));
+    fireEvent.click(spot('dragon7'));
+    fireEvent.click(dealButton());
+    const settled = session.getState();
+    expect(settled.totalHands).toBe(1);
+    // The engine has settled; the table (and so the pill) still shows the pre-deal bankroll with no net.
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('dealing');
+    expect(getDisplayedBankroll()).toEqual({ bankroll: 1000, net: 0 });
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+    expect(getDisplayedBankroll()).toEqual({ bankroll: settled.bankroll, net: settled.stats.net });
+    expect(settled.bankroll).toBe(1000 + settled.stats.net);
+    unmount();
+    expect(getDisplayedBankroll()).toBeNull();
+  });
+
   it('plays the whole shoe through the cut card into a new shoe with the banner and shuffle', () => {
     const { session } = setup({ bankroll: 100000, seed: 3 });
     fireEvent.click(chip(100));
@@ -239,6 +383,148 @@ describe('PlayView — dealing (instant)', () => {
   });
 });
 
+describe('PlayView — settlement display', () => {
+  it('shows the Dragon 7 as a push on the Banker and a Tie as pushes on the main bets', () => {
+    const { session } = setup({ bankroll: 1000, seed: 267 });
+    fireEvent.click(spot('banker'));
+    fireEvent.click(spot('player'));
+    fireEvent.click(chip(5));
+    fireEvent.click(spot('dragon7'));
+    fireEvent.click(spot('tie'));
+    expect(session.getState().bets).toEqual({ banker: 25, player: 25, dragon7: 5, tie: 5 });
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    let last = session.getState().lastHand!;
+    expect(last.result.dragon7).toBe(true);
+    expect(screen.getByTestId('dealer-call').textContent).toMatch(/Dragon 7!/);
+    expect(document.querySelector('[data-side="banker"] [data-tag="dragon7"]')).toBeTruthy();
+    expect(document.querySelector('[data-side="banker"]')!.getAttribute('data-total')).toBe('7');
+    expect(spot('banker').getAttribute('data-result')).toBe('push');
+    expect(spot('dragon7').getAttribute('data-result')).toBe('win');
+    expect(spot('player').getAttribute('data-result')).toBe('lose');
+    expect(spot('tie').getAttribute('data-result')).toBe('lose');
+    expect(spot('banker').textContent).toMatch(/Push/);
+    expect(spot('dragon7').textContent).toMatch(/\+\$200/);
+    // The pushed Banker chips stay on the felt; the losers have been swept.
+    expect(spot('banker').querySelector('[data-total="25"]')).toBeTruthy();
+    expect(spot('player').querySelector('[data-total]')).toBeNull();
+    expect(screen.getByTestId('settlement-status').textContent).toBe('You won $170');
+    expect(tableBankroll()).toBe('$1,170');
+    expect(screen.getByTestId('dealer-tip').textContent).toMatch(/Banker bet is a push/);
+    // Hand 2 of this seed is a Tie: the main bets push, Tie wins, Dragon 7 loses.
+    fireEvent.keyDown(window, { key: 'r' });
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    last = session.getState().lastHand!;
+    expect(last.result.outcome).toBe('tie');
+    expect(screen.getByTestId('dealer-call').textContent).toMatch(/^Tie, 5 and 5/);
+    expect(spot('player').getAttribute('data-result')).toBe('push');
+    expect(spot('banker').getAttribute('data-result')).toBe('push');
+    expect(spot('tie').getAttribute('data-result')).toBe('win');
+    expect(spot('dragon7').getAttribute('data-result')).toBe('lose');
+    expect(spot('tie').textContent).toMatch(/\+\$40/);
+    expect(screen.getByTestId('settlement-status').textContent).toBe('You won $35');
+    expect(tableBankroll()).toBe('$1,205');
+    const rows = within(screen.getByTestId('hand-history')).getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toMatch(/\+\$35/);
+    expect(rows[1].textContent).toMatch(/D7/);
+    expect(rows[1].textContent).toMatch(/\+\$170/);
+  });
+
+  it('DEAL / Space while a hand plays fast-forwards it without complaining about a missing bet, and deals at once from a shuffle when chips are down', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'fast', sound: false });
+    const { session } = setup({ bankroll: 1000, seed: 42 });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.getByTestId('dealer-call').textContent).toBe('New shoe — place your bets');
+    fireEvent.click(spot('banker'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    expect(dealButton().textContent).toMatch(/Fast forward/);
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('dealing');
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    act(() => {
+      fireEvent.keyDown(window, { key: ' ' });
+    });
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('settled');
+    expect(screen.queryByTestId('notice')).toBeNull();
+    expect(session.getState().totalHands).toBe(1);
+    expect(screen.getByTestId('settlement-status').textContent).toMatch(/You won|You lost|Push/);
+    // Next hand: press DEAL once the settlement is revealed but before the sweep — no notice, no phantom deal.
+    fireEvent.keyDown(window, { key: 'r' });
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    for (let i = 0; i < 200 && screen.getByTestId('play-view').getAttribute('data-phase') !== 'settling'; i++) {
+      act(() => {
+        vi.advanceTimersByTime(25);
+      });
+    }
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('settling');
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('settled');
+    expect(screen.queryByTestId('notice')).toBeNull();
+    expect(session.getState().totalHands).toBe(2);
+    // A shuffle with chips already on the layout: skipping it deals straight away.
+    fireEvent.keyDown(window, { key: 'r' });
+    fireEvent.click(screen.getByTestId('new-shoe-button'));
+    fireEvent.click(screen.getByTestId('confirm-new-shoe'));
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('shuffling');
+    expect(dealButton().textContent).toMatch(/Skip/);
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    expect(session.getState().totalHands).toBe(3);
+    expect(session.getState().shoe.shoeNumber).toBe(2);
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(screen.queryByTestId('notice')).toBeNull();
+  });
+
+  it('a rules change while a hand plays finishes and records that hand, then shuffles the new shoe', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'fast', sound: false });
+    const { session } = setup({ bankroll: 1000, seed: 42 });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    fireEvent.click(spot('banker'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('dealing');
+    act(() => {
+      rulesStore.set(RULE_PRESETS.commission.rules);
+    });
+    expect(session.getState().rules.bankerRule).toBe('commission');
+    expect(session.getState().shoe.shoeNumber).toBe(2);
+    expect(within(screen.getByTestId('hand-history')).getAllByRole('listitem')).toHaveLength(1);
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('shuffling');
+    expect(screen.getByTestId('dealer-call').textContent).toBe('Shuffling shoe 2…');
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.getByTestId('dealer-call').textContent).toBe('New shoe — place your bets');
+    expect(screen.getByTestId('commission-box')).toBeTruthy();
+    expect(spot('dragon7')).toBeNull();
+    expect(screen.getByText('Hand 0')).toBeTruthy();
+  });
+});
+
 describe('PlayView — table variants and controls', () => {
   it('shows the commission box for the classic rule and hides the EZ side bets', () => {
     rulesStore.set(RULE_PRESETS.commission.rules);
@@ -248,6 +534,35 @@ describe('PlayView — table variants and controls', () => {
     expect(spot('dragon7')).toBeNull();
     expect(spot('panda8')).toBeNull();
     expect(spot('banker').textContent).toMatch(/5% commission/i);
+    expect(spot('player').textContent).toMatch(/push on tie/i);
+  });
+
+  it('a session reset while a hand is still playing records nothing for the old hand', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'fast', sound: false });
+    const { session } = setup({ bankroll: 1000, seed: 42 });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    fireEvent.click(spot('banker'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('dealing');
+    act(() => {
+      session.reset({ bankroll: 500, seed: 99 });
+    });
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(session.getState().totalHands).toBe(0);
+    expect(screen.queryByTestId('hand-history')).toBeNull();
+    expect(screen.getByText('Hand 0')).toBeTruthy();
+    expect(tableBankroll()).toBe('$500');
+    expect(screen.getByTestId('settlement-status').textContent).toBe('');
   });
 
   it('New shoe asks for confirmation once hands were dealt, then shuffles', () => {

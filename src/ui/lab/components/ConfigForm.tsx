@@ -15,10 +15,8 @@ import styles from '../Lab.module.css';
 
 export interface ConfigFormProps {
   config: LabConfig;
-  /** The table rules the form currently points at. */
+  /** The table rules the form currently points at (the Settings dialog's rules for the "current" choice). */
   rules: TableRules;
-  /** The rules from the Settings dialog (what the "current" choice simulates). */
-  currentRules: TableRules;
   disabled?: boolean;
   onChange(patch: Partial<LabConfig>): void;
   onReplace(config: LabConfig): void;
@@ -30,7 +28,7 @@ const SIDE_MODE_OPTIONS: readonly SelectOption<SideBetMode>[] = [
   { value: 'count', label: 'Only when the count says so' },
 ];
 
-export function ConfigForm({ config, rules, currentRules, disabled, onChange, onReplace }: ConfigFormProps): ReactNode {
+export function ConfigForm({ config, rules, disabled, onChange, onReplace }: ConfigFormProps): ReactNode {
   const id = useId();
   const activePreset = matchLabPreset(config);
   const selector = getSelector(config.selectorId);
@@ -41,9 +39,9 @@ export function ConfigForm({ config, rules, currentRules, disabled, onChange, on
 
   const rulesOptions: readonly SelectOption<RulesChoice>[] = RULES_CHOICES.map((choice) => ({
     value: choice,
-    label: choice === 'current' ? `${rulesChoiceLabel(choice)} — ${ruleSummary(currentRules)}` : `Preset — ${RULE_PRESETS[choice].name}`,
+    label: choice === 'current' ? `${rulesChoiceLabel(choice)} (Settings dialog)` : `Preset — ${RULE_PRESETS[choice].name}`,
   }));
-  const rulesHint = `${config.rulesChoice === 'current' ? 'From the Settings dialog' : ruleSummary(rules)} · main ${formatMoney(main.min)}–${formatMoney(main.max)} · side ${formatMoney(side.min)}–${formatMoney(side.max)}`;
+  const rulesHint = `${ruleSummary(rules)} · main ${formatMoney(main.min)}–${formatMoney(main.max)} · side ${formatMoney(side.min)}–${formatMoney(side.max)}`;
 
   const sideHint = (bet: 'dragon7' | 'panda8'): string => {
     if (!rules.sideBets[bet]) return `${SIDE_BET_LABELS[bet]} is not dealt on this table`;

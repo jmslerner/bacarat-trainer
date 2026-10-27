@@ -45,7 +45,6 @@ export function spotPayout(bet: BetType, rules: TableRules): string {
     case 'player':
       return 'pays 1 to 1';
     case 'banker':
-      if (rules.bankerRule === 'super6') return 'pays 1 to 1';
       return 'pays 1 to 1';
     case 'tie':
       return `pays ${odds(rules.tiePays)}`;
@@ -71,7 +70,7 @@ export function spotNote(bet: BetType, rules: TableRules): string | null {
     case 'panda8':
       return 'Player wins with a 3-card 8';
     case 'player':
-      return rules.bankerRule === 'ez' ? 'push on tie' : null;
+      return 'push on tie';
     default:
       return null;
   }

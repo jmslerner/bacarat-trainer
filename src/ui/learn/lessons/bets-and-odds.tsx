@@ -4,7 +4,7 @@
  */
 import type { ReactNode } from 'react';
 import { cloneRules, exactProbabilities, houseEdge, type TableRules } from '@/engine';
-import { formatMoney, formatPercent, useSettings } from '@/ui/shell';
+import { formatMoney, formatNumber, formatPercent, useSettings } from '@/ui/shell';
 import { Callout, Facts, LessonLink, LessonPage, Prose, Section, Table, tableClass } from './components';
 import { CostCalculator } from './widgets/CostCalculator';
 import { PayoutTable } from './widgets/PayoutTable';
@@ -12,7 +12,7 @@ import { PayoutTable } from './widgets/PayoutTable';
 const SECTIONS = [
   { id: 'edge', title: 'What the house edge means' },
   { id: 'table', title: 'Every bet at your table' },
-  { id: 'banker', title: 'Why Banker is the best bet' },
+  { id: 'banker', title: 'Why Banker is the best bet' }, // retitled at render time when the table's Banker rule makes Player cheaper (Super 6)
   { id: 'tie', title: 'The Tie bet' },
   { id: 'cost', title: 'What a session costs' },
   { id: 'decks', title: 'Six decks or eight' },
@@ -29,17 +29,23 @@ export function BetsAndOddsLesson(): ReactNode {
   const commission = houseEdge('banker', withBankerRule(rules, 'commission'));
   const super6 = houseEdge('banker', withBankerRule(rules, 'super6'));
   const player = houseEdge('player', rules);
+  const bankerEdge = houseEdge('banker', rules);
+  const bankerBeatsPlayer = bankerEdge < player;
+  const bankerTitle = bankerBeatsPlayer ? 'Why Banker is the best bet' : 'Banker or Player: which is cheaper here';
+  const sections = SECTIONS.map((s) => (s.id === 'banker' ? { ...s, title: bankerTitle } : s));
+  const rate = rules.commissionRate;
   const tie8 = houseEdge('tie', { ...cloneRules(rules), tiePays: 8 });
   const tie9 = houseEdge('tie', { ...cloneRules(rules), tiePays: 9 });
   const six = exactProbabilities(6);
   const eight = exactProbabilities(8);
   const rulesSix = { ...cloneRules(rules), decks: 6 as const };
   const rulesEight = { ...cloneRules(rules), decks: 8 as const };
+  const deckCostPerHour = Math.abs(houseEdge('banker', rulesEight) - houseEdge('banker', rulesSix)) * 25 * 70;
 
   return (
     <LessonPage
       id="bets-and-odds"
-      sections={SECTIONS}
+      sections={sections}
       lede="Every bet on the layout has a price: the house edge. These are the exact figures for your table, computed from the probabilities of every possible hand, not estimated — and a calculator for what that price adds up to over an evening."
     >
       <Section id="edge" number={1} title="What the house edge means">
@@ -73,22 +79,23 @@ export function BetsAndOddsLesson(): ReactNode {
         </Prose>
         <PayoutTable rules={rules} />
         <Callout tone="tip" title="Read the last column">
-          The “costs per $100” column is the only honest price tag. A Banker bet costs about a dollar per hundred; a Panda 8 bet costs ten. Big payouts
-          hide big prices.
+          The “costs per $100” column is the only honest price tag. A Banker bet costs {formatMoney(bankerEdge * 100, { cents: true })} per hundred; a Panda 8
+          bet costs {formatMoney(houseEdge('panda8', rules) * 100, { cents: true })}. Big payouts hide big prices.
         </Callout>
       </Section>
 
-      <Section id="banker" number={3} title="Why Banker is the best bet">
+      <Section id="banker" number={3} title={bankerTitle}>
         <Prose>
           <p>
-            Banker wins more often than Player because it acts last (<LessonLink to="third-card">Lesson 2</LessonLink>). The casino claws most of that
-            advantage back, but not quite all of it, so the Banker bet keeps the lowest house edge of any bet on the table however the table charges for it:
+            Banker wins more often than Player because it acts last (<LessonLink to="third-card">Lesson 2</LessonLink>). At EZ and commission tables the
+            casino claws most of that advantage back, but not quite all of it, so the Banker bet keeps the lowest house edge of any bet on the table. Super 6
+            is the exception: the half payout on a Banker 6 costs more than the commission it replaces, and there the Player bet is the cheaper one:
           </p>
         </Prose>
         <Facts
           items={[
             { label: 'Banker, EZ (Dragon 7 push)', value: formatPercent(ez, 2), sub: 'no commission', tone: rules.bankerRule === 'ez' ? 'gold' : 'neutral' },
-            { label: 'Banker, 5% commission', value: formatPercent(commission, 2), sub: 'classic tables', tone: rules.bankerRule === 'commission' ? 'gold' : 'neutral' },
+            { label: `Banker, ${formatPercent(rate, 0)} commission`, value: formatPercent(commission, 2), sub: 'classic tables', tone: rules.bankerRule === 'commission' ? 'gold' : 'neutral' },
             { label: 'Banker, Super 6', value: formatPercent(super6, 2), sub: 'Banker 6 pays half', tone: rules.bankerRule === 'super6' ? 'gold' : 'neutral' },
             { label: 'Player', value: formatPercent(player, 2), sub: 'always 1:1', tone: 'player' },
           ]}
@@ -96,9 +103,11 @@ export function BetsAndOddsLesson(): ReactNode {
         <Prose>
           <p>
             Two things follow. First, the EZ rule is marginally <em>better</em> for the player than paying commission: giving up the Dragon 7 wins costs
-            you {formatPercent(p.dragon7, 2)} of your bet per hand, while a 5% commission on {formatPercent(p.banker, 2)} of hands costs{' '}
-            {formatPercent(0.05 * p.banker, 2)}. Second, the gap between Banker and Player — about {formatPercent(player - ez, 2)} of each bet — is real but
-            small: over a two-hour session it is worth a few dollars, not a change of fortune. Bet Banker because it is cheapest, not because it “is due”.
+            you {formatPercent(p.dragon7, 2)} of your bet per hand, while a {formatPercent(rate, 0)} commission on {formatPercent(p.banker, 2)} of hands costs{' '}
+            {formatPercent(rate * p.banker, 2)}. Second, the gap between Banker and Player — {formatPercent(Math.abs(player - bankerEdge), 2)} of each bet at
+            your table — is real but small: for a {formatMoney(25)} bettor over a two-hour session of 140 hands it is worth about{' '}
+            {formatMoney(Math.round(Math.abs(player - bankerEdge) * 25 * 140))}, not a change of fortune.{' '}
+            {bankerBeatsPlayer ? 'Bet Banker because it is cheapest, not because it “is due”.' : 'At your Super 6 table that small gap runs the other way: Player is the cheaper bet.'}
           </p>
         </Prose>
       </Section>
@@ -108,8 +117,8 @@ export function BetsAndOddsLesson(): ReactNode {
           <p>
             Ties happen on {formatPercent(p.tie, 2)} of hands — roughly one in {Math.round(1 / p.tie)}. A fair payout would be about{' '}
             {((1 - p.tie) / p.tie).toFixed(1)} to 1. The table pays {rules.tiePays} to 1, and the difference is the house edge:{' '}
-            <strong>{formatPercent(tie8, 2)} at 8:1</strong>, or {formatPercent(tie9, 2)} at the 9:1 tables you occasionally find. At 8:1 the Tie is
-            fourteen times as expensive as the Banker bet.
+            <strong>{formatPercent(tie8, 2)} at 8:1</strong>, or {formatPercent(tie9, 2)} at the 9:1 tables you occasionally find. At 8:1 the Tie is about{' '}
+            {formatNumber(tie8 / bankerEdge, 0)} times as expensive as the Banker bet.
           </p>
           <p>
             One subtlety in its favour: since Player and Banker bets push on a tie, a Tie bet is the only way to have action on those hands. That is a
@@ -117,7 +126,8 @@ export function BetsAndOddsLesson(): ReactNode {
           </p>
         </Prose>
         <Callout tone="warn" title="The 9:1 trap">
-          A 9:1 table still carries a {formatPercent(tie9, 2)} edge — four times the Banker bet. “Better than 8:1” is not the same as “good”.
+          A 9:1 table still carries a {formatPercent(tie9, 2)} edge — about {formatNumber(tie9 / bankerEdge, 1)} times the Banker bet. “Better than 8:1” is not
+          the same as “good”.
         </Callout>
       </Section>
 
@@ -176,8 +186,9 @@ export function BetsAndOddsLesson(): ReactNode {
         </Table>
         <Prose>
           <p>
-            For a {formatMoney(25)} Banker bettor the deck count changes the cost of an hour by less than a cent. Pick a table for its minimums, its pace
-            and its rules on commission — not for its deck count.
+            For a {formatMoney(25)} Banker bettor at 70 hands an hour the deck count changes the cost of an hour by about{' '}
+            {formatMoney(deckCostPerHour, { cents: true })} — a few cents. Pick a table for its minimums, its pace and its rules on commission — not for its
+            deck count.
           </p>
         </Prose>
       </Section>
