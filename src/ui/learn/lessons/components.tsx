@@ -262,7 +262,7 @@ export function Table({ caption, children, compact, className }: TableProps): Re
   );
 }
 
-export const tableClass = { num: styles.num, muted: styles.muted, dim: styles.dim, strong: styles.strong };
+export const tableClass = { num: styles.num, muted: styles.muted, dim: styles.dim, strong: styles.strong, phoneHidden: styles.phoneHidden };
 
 /* ---- widget panel ------------------------------------------------------------------------------------------ */
 

@@ -140,12 +140,9 @@
 .up { background: rgba(88, 214, 141, 0.16); color: var(--win); }
 .down { background: rgba(255, 107, 107, 0.16); color: var(--loss); }
 
+/* Below ~930px the brand, three full tab labels and the bankroll pill no longer share one row: stack the tabs under
+   the brand and the actions (the sticky height is --topbar-height, set in global.css for the same breakpoint). */
 @media (max-width: 900px) {
-  .tagline { display: none; }
-  .tab { padding: 9px 12px; }
-}
-
-@media (max-width: 640px) {
   .inner {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
@@ -155,9 +152,10 @@
     padding-top: 8px;
     padding-bottom: 6px;
   }
+  .tagline { display: none; }
   .brand { grid-area: brand; min-width: 0; max-width: 100%; }
   .plaque { max-width: 100%; }
-  .actions { grid-area: actions; gap: 2px; }
+  .actions { grid-area: actions; }
   .nav {
     grid-area: nav;
     display: grid;
@@ -165,7 +163,12 @@
     gap: 2px;
     margin-top: 8px;
   }
-  .tab { justify-content: center; padding: 8px 6px; font-size: var(--text-xs); letter-spacing: 0.08em; }
+  .tab { justify-content: center; padding: 8px 10px; }
+}
+
+@media (max-width: 640px) {
+  .actions { gap: 2px; }
+  .tab { padding: 8px 6px; font-size: var(--text-xs); letter-spacing: 0.08em; }
   .tabLabel { display: none; }
   .tabShort { display: inline; }
   .bankroll { gap: 6px; padding: 0 10px; min-height: 36px; margin-right: 2px; }

@@ -105,6 +105,8 @@
 .table .dim td { opacity: 0.55; }
 .table .strong { font-weight: 600; color: var(--gold-light); }
 .compact td, .compact th { padding: 6px 10px; }
+/* a column a phone can do without, so the figures that matter stay in view instead of behind a sideways scroll */
+@media (max-width: 640px) { .phoneHidden { display: none; } }
 
 /* ---- widget panel ---- */
 .widget { border-radius: var(--radius-lg); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border), var(--shadow-md); overflow: hidden; min-width: 0; }

@@ -427,6 +427,7 @@
 .spot {
   --spot: var(--gold-light);
   --spot-rgb: 241, 214, 120;
+  container-type: inline-size;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -471,6 +472,11 @@
 .spotNameShort { display: none; }
 .spotPays { font-family: var(--font-body); font-weight: 600; font-size: 0.66rem; letter-spacing: 0.1em; opacity: 0.85; white-space: nowrap; }
 .spotNote { font-family: var(--font-body); font-weight: 500; font-size: 0.6rem; letter-spacing: 0.08em; opacity: 0.7; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+/* The key hint sits in the top-left corner; on a spot too narrow for it to clear the centred name it goes. */
+@container (max-width: 134px) {
+  .spotKey { display: none; }
+}
+.arcPhone .spotKey { display: none; }
 .spotKey {
   position: absolute;
   top: 6px;

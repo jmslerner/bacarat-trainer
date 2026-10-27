@@ -42,6 +42,9 @@
 .progressFill { height: 100%; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); transition: width var(--dur-med); }
 .content { min-width: 0; max-width: 980px; }
 
+/* a completed lesson's circle turns gold on phones (its tick is read out, not shown) */
+.navLink[data-done='true'] .navNo { background: rgba(88, 214, 141, 0.18); box-shadow: inset 0 0 0 1px var(--win); color: var(--win); }
+
 /* ---- index page ---- */
 .index { display: flex; flex-direction: column; gap: var(--space-6); }
 .hero { display: flex; flex-direction: column; gap: 8px; }
@@ -86,11 +89,23 @@
 @media (max-width: 1000px) {
   .view { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
   .sidebar { position: static; }
-  .nav { flex-direction: row; align-items: center; gap: 6px; padding: 8px; overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+  /* a row of pills that wraps, so every lesson stays visible without a hidden sideways scroll */
+  .nav { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; }
   .navList { display: contents; }
   .navList li { display: contents; }
   .navLink { flex: none; padding: 6px 10px; }
   .navTitle { overflow: visible; }
   .navDivider { width: 1px; height: 22px; margin: 0 2px; flex: none; }
   .navProgress { display: none; }
+}
+@media (max-width: 640px) {
+  /* phones: numbered circles only (the title is still read out and shown on hover), one tidy row */
+  .nav { gap: 4px; padding: 6px; justify-content: center; }
+  .navLink { gap: 0; padding: 4px; }
+  .navHome { padding: 4px 10px; }
+  .navNo { width: 32px; height: 32px; font-size: 13px; }
+  .navDrills .navNo { width: 32px; height: 32px; }
+  .navList .navTitle, .navDrills .navTitle { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .navDone { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .navDivider { display: none; }
 }

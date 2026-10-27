@@ -128,10 +128,15 @@
   --topbar-height: 64px;
 }
 
+@media (max-width: 900px) {
+  :root {
+    --topbar-height: 100px; /* the top bar stacks its tabs under the brand (see TopBar.module.css) */
+  }
+}
+
 @media (max-width: 640px) {
   :root {
     --gutter: 12px;
-    --topbar-height: 100px;
   }
 }
 

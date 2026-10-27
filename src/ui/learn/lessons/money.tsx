@@ -156,8 +156,8 @@ export function MoneyLesson(): ReactNode {
       <Section id="systems" number={3} title="The betting systems">
         <Prose>
           <p>
-            Every system in the Strategy Lab, with what it does, what it feels like, and the mechanism by which it loses — because each one does, by
-            exactly the house edge on the money it puts through.
+            Every popular system, with what it does, what it feels like, and the mechanism by which it loses — because each one does, by exactly
+            the house edge on the money it puts through. The first seven are built into the Strategy Lab.
           </p>
         </Prose>
         <Table caption="Betting systems and their failure modes">

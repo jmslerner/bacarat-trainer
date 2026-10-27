@@ -62,7 +62,7 @@ export function CountEvTable({ name, rows, threshold, amount, handsPerHour = 70 
             <th scope="col" className={tableClass.num}>
               Share of hands
             </th>
-            <th scope="col" className={tableClass.num}>
+            <th scope="col" className={cx(tableClass.num, tableClass.phoneHidden)}>
               Hands
             </th>
             <th scope="col" className={tableClass.num}>
@@ -79,7 +79,7 @@ export function CountEvTable({ name, rows, threshold, amount, handsPerHour = 70 
               <tr key={i} className={cx(bet && tableClass.strong)} data-bucket-bet={bet}>
                 <td>{bucketLabel(r)}</td>
                 <td className={tableClass.num}>{formatPercent(r.frequency, 1)}</td>
-                <td className={tableClass.num}>{formatNumber(r.hands)}</td>
+                <td className={cx(tableClass.num, tableClass.phoneHidden)}>{formatNumber(r.hands)}</td>
                 <td className={tableClass.num}>
                   <span className={styles.bar} style={{ gridTemplateColumns: '110px minmax(0, 1fr)', justifyContent: 'end' }}>
                     <span className={styles.barTrack} style={{ width: 110, height: 10 }} aria-hidden="true">

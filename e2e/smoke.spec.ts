@@ -46,9 +46,12 @@ test('smoke: deal a hand with Banker + Dragon 7, visit Learn and the drills, run
   await expect(page.getByTestId('history-panel')).toContainText('1 hands');
   const cards = await page.locator('[data-dealt]').count();
   expect(cards).toBeGreaterThanOrEqual(4);
-  // A three-card hand shows its third card sideways.
-  const playerCards = await page.locator('[data-side="player"] [data-dealt]').count();
-  if (playerCards === 3) await expect(page.locator('[data-side="player"] [data-rotated]')).toHaveCount(1);
+  // A three-card hand shows its third card sideways (a dealt card is a face and a back SVG; only the third pair is rotated).
+  const playerCards = page.locator('[data-side="player"] [data-dealt]');
+  if ((await playerCards.count()) === 3) {
+    await expect(playerCards.nth(2).locator('svg[data-rotated]').first()).toBeVisible();
+    await expect(playerCards.nth(1).locator('svg[data-rotated]')).toHaveCount(0);
+  }
 
   // Learn: index → lesson → drills hub → a drill
   await page.locator('nav[aria-label="Mode"] a[data-mode="learn"]').click();
@@ -113,7 +116,7 @@ test('rule presets: commission box and Super 6 note, side bets disappear when sw
 
   await page.getByTestId('settings-button').click();
   await page.getByTestId('preset-ez').click();
-  await page.getByRole('switch', { name: /^pair/i }).click();
+  await page.getByRole('switch', { name: /banker pair/i }).locator('xpath=..').click(); // the <label> around the hidden input
   await page.getByTestId('apply-rules').click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('[data-bet="playerPair"]')).toHaveCount(0);

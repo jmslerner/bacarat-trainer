@@ -163,9 +163,11 @@ export function LearnView(): ReactNode {
                   href={toHash('learn', l.id)}
                   className={cx(styles.navLink, current === l.id && styles.navActive)}
                   aria-current={current === l.id ? 'page' : undefined}
+                  title={`Lesson ${l.number}: ${l.title}`}
                   onMouseEnter={() => preloadLesson(l.id)}
                   onFocus={() => preloadLesson(l.id)}
                   data-lesson-link={l.id}
+                  data-done={completed[l.id] ? 'true' : undefined}
                 >
                   <span className={styles.navNo} aria-hidden="true">
                     {l.number}
@@ -181,7 +183,7 @@ export function LearnView(): ReactNode {
             ))}
           </ol>
           <span className={styles.navDivider} aria-hidden="true" />
-          <a href={toHash('learn', DRILLS_ID)} className={cx(styles.navLink, styles.navDrills, isDrills && styles.navActive)} aria-current={isDrills ? 'page' : undefined} data-lesson-link={DRILLS_ID}>
+          <a href={toHash('learn', DRILLS_ID)} className={cx(styles.navLink, styles.navDrills, isDrills && styles.navActive)} aria-current={isDrills ? 'page' : undefined} title="Drills" data-lesson-link={DRILLS_ID}>
             <span className={styles.navNo} aria-hidden="true">
               D
             </span>

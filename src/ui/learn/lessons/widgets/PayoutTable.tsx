@@ -43,7 +43,9 @@ export function PayoutTable({ rules, stake = 100 }: PayoutTableProps): ReactNode
       <thead>
         <tr>
           <th scope="col">Bet</th>
-          <th scope="col">Wins when</th>
+          <th scope="col" className={tableClass.phoneHidden}>
+            Wins when
+          </th>
           <th scope="col">Pays</th>
           <th scope="col" className={tableClass.num}>
             Wins
@@ -70,7 +72,7 @@ export function PayoutTable({ rules, stake = 100 }: PayoutTableProps): ReactNode
                 {BET_LABELS[bet]}
                 {!enabled && <span className={tableClass.muted}> (not dealt here)</span>}
               </td>
-              <td>{WINS_WHEN[bet]}</td>
+              <td className={tableClass.phoneHidden}>{WINS_WHEN[bet]}</td>
               <td>{payoutLabel(bet, rules)}</td>
               <td className={tableClass.num}>{formatPercent(p.win, 2)}</td>
               <td className={cx(tableClass.num, p.push === 0 && tableClass.muted)}>{p.push === 0 ? '—' : formatPercent(p.push, 2)}</td>
