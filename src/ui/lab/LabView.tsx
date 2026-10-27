@@ -89,7 +89,7 @@ export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
             Pit a bet selector and a money-management system against thousands of simulated sessions, then compare what the house actually kept with the exact house edge. No system beats the edge; counting the side bets is the one place an edge appears.
           </p>
         </div>
-        <span className={styles.note}>
+        <span className={styles.note} data-testid="lab-table-note">
           <strong>Table</strong> {ruleSummary(rules)}
         </span>
       </div>

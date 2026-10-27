@@ -161,7 +161,7 @@ export function BasicsLesson(): ReactNode {
             <tr>
               <td className="c-banker">Banker</td>
               <td>the Banker hand is closer to 9</td>
-              <td>{rules.bankerRule === 'ez' ? '1 to 1, no commission (push on a Dragon 7)' : rules.bankerRule === 'commission' ? '1 to 1 less 5% commission' : '1 to 1 (half on a Banker 6)'}</td>
+              <td>{rules.bankerRule === 'ez' ? '1 to 1, no commission (push on a Dragon 7)' : rules.bankerRule === 'commission' ? `1 to 1 less ${formatPercent(rules.commissionRate, 0)} commission` : '1 to 1 (half on a Banker 6)'}</td>
               <td>bet returned</td>
             </tr>
             <tr>

@@ -77,8 +77,9 @@ export function RoadsLesson(): ReactNode {
         <RoadExample title="Ties and leading ties" hint="Ties never create a cell; they decorate the last one." sequence={EX_TIES} roads={['big']} cols={10}>
           <Prose>
             <p>
-              The shoe opens with a tie, which has nothing to attach to, so it waits at the top-left and is folded into the first Banker cell. Hands 5 and 6
-              are two ties in a row: one slash with a “2” on the Player cell before them.
+              The shoe opens with a tie, which has nothing to attach to, so it waits at the top-left and is folded into the first Banker cell (hand 2). The
+              tie on hand 4 is slashed across the second Banker cell. Hands 6 and 7 are two ties in a row: one slash with a “2” on the Player cell before
+              them (hand 5). Hand 8 is another Player, so that column grows to two deep, and hand 9 starts a Banker column.
             </p>
           </Prose>
         </RoadExample>

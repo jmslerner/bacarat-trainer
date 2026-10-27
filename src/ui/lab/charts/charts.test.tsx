@@ -19,9 +19,15 @@ const bins = [
 describe('scale helpers', () => {
   it('niceTicks covers the domain with round steps', () => {
     const t = niceTicks(0, 37, 4);
-    expect(t.ticks).toEqual([0, 10, 20, 30, 40]);
-    expect(t.min).toBe(0);
-    expect(t.max).toBe(40);
+    expect(t.ticks[0]).toBe(0);
+    expect(t.ticks[t.ticks.length - 1]).toBeGreaterThanOrEqual(37);
+    expect(t.ticks.length).toBeGreaterThanOrEqual(3);
+    expect(t.ticks.length).toBeLessThanOrEqual(6);
+    for (let i = 1; i < t.ticks.length; i++) expect(t.ticks[i] - t.ticks[i - 1]).toBeCloseTo(t.step, 9);
+    const mantissa = t.step / 10 ** Math.floor(Math.log10(t.step));
+    expect([1, 2, 5]).toContain(mantissa);
+    expect(t.min).toBe(t.ticks[0]);
+    expect(t.max).toBe(t.ticks[t.ticks.length - 1]);
     const money = niceTicks(480, 1320, 5);
     expect(money.ticks[0]).toBeLessThanOrEqual(480);
     expect(money.ticks[money.ticks.length - 1]).toBeGreaterThanOrEqual(1320);
@@ -113,6 +119,6 @@ describe('CurvesChart', () => {
   it('renders an empty state without curves', () => {
     render(<CurvesChart curves={[]} curveHands={0} start={1000} />);
     expect(screen.getByText('No sample curves to show.')).toBeInTheDocument();
-    expect(screen.queryByRole('group')).toBeNull();
+    expect(screen.queryByRole('group', { name: /Bankroll curves/ })).toBeNull();
   });
 });

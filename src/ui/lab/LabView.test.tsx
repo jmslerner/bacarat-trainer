@@ -74,7 +74,7 @@ describe('LabView — form', () => {
   it('validates the form: warnings do not block, errors disable Run and are listed', () => {
     const { unmount } = render(<LabView initialConfig={SMALL} />);
     fireEvent.change(select('Table rules'), { target: { value: 'commission' } });
-    expect(screen.getByText(/Table/).closest('.' + 'note') ?? screen.getByText(/Classic 5% commission/)).toBeTruthy();
+    expect(screen.getByTestId('lab-table-note')).toHaveTextContent('Classic 5% commission · 8 decks · Tie 8:1 · Pairs 11:1');
     expect(select('Dragon 7')).toBeDisabled();
     expect(screen.getByText('Dragon 7 is not dealt on this table')).toBeInTheDocument();
     fireEvent.change(field('Unit'), { target: { value: '5' } });
@@ -98,7 +98,7 @@ describe('LabView — form', () => {
 describe('LabView — running', () => {
   it('runs the simulation and renders the results, charts, side bets and outcome mix without console errors', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(<LabView initialConfig={SMALL} />);
+    render(<LabView initialConfig={{ ...SMALL, dragon7: 'always', sideUnits: 1 }} />);
     fireEvent.click(screen.getByTestId('lab-run'));
     expect(screen.getByTestId('lab-cancel')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Simulation progress' })).toBeInTheDocument();
@@ -107,9 +107,9 @@ describe('LabView — running', () => {
     expect(screen.getByTestId('lab-run')).toBeEnabled();
 
     // The figures on screen are exactly what runSimulation produces for the same config.
-    const expected = runSimulation(toSimConfig({ ...defaultLabConfig({ bankroll: 1000 }), ...SMALL }, rulesStore.get()));
+    const expected = runSimulation(toSimConfig({ ...defaultLabConfig({ bankroll: 1000 }), ...SMALL, dragon7: 'always', sideUnits: 1 }, rulesStore.get()));
     expect(validateSimConfig(expected.config)).toEqual([]);
-    expect(screen.getByTestId('lab-strategy')).toHaveTextContent('Always Banker, Flat betting, $10 unit; no Dragon 7; no Panda 8.');
+    expect(screen.getByTestId('lab-strategy')).toHaveTextContent('Always Banker, Flat betting, $10 unit; Dragon 7 $10 every hand; no Panda 8.');
     expect(within(results).getByText('30 trials × 1 shoe')).toBeInTheDocument();
     const stats = screen.getByTestId('lab-stats');
     expect(stats).toHaveTextContent(`Mean final bankroll$${expected.meanFinal.toLocaleString('en-US')}`);
@@ -119,7 +119,8 @@ describe('LabView — running', () => {
     expect(screen.getByTestId('lab-verdict')).toHaveTextContent(/^Over 30 sessions of one shoe, Always Banker with Flat betting/);
     expect(screen.getByTestId('lab-histogram').querySelectorAll('path[data-bin]').length).toBe(expected.histogram.filter((b) => b.count > 0).length);
     expect(screen.getByTestId('lab-curves').querySelectorAll('path[data-curve]')).toHaveLength(20);
-    expect(screen.getByTestId('lab-side-dragon7')).toHaveTextContent(/Dragon 7never00/);
+    expect(screen.getByTestId('lab-side-dragon7')).toHaveTextContent(`Dragon 7every hand${expected.sideBets.dragon7.bets.toLocaleString('en-US')}${expected.sideBets.dragon7.wins}`);
+    expect(screen.getByTestId('lab-side-panda8')).toHaveTextContent(/Panda 8never00/);
     expect(screen.getByTestId('lab-outcomes')).toHaveTextContent(/math 45.86%/);
     expect(errors).not.toHaveBeenCalled();
   });
@@ -182,5 +183,7 @@ describe('LabView — running', () => {
     const results = await screen.findByTestId('lab-results');
     expect(within(results).getByText(RULE_PRESETS.super6.rules.bankerRule === 'super6' ? /Super 6 · 8 decks/ : /never/)).toBeInTheDocument();
     expect(screen.getByTestId('lab-stats')).toHaveTextContent('Exact edge (Banker)1.46%');
+    expect(results).toHaveTextContent(/No side bets in this strategy/);
+    expect(screen.queryByTestId('lab-side-dragon7')).toBeNull();
   });
 });

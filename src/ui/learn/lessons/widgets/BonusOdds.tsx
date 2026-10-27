@@ -74,8 +74,9 @@ export function BonusOdds({ rules }: BonusOddsProps): ReactNode {
         </tbody>
       </Table>
       <p className={styles.note}>
-        &ldquo;Once every 44 hands&rdquo; is an average, not a schedule: in 44 hands the chance of seeing at least one Dragon 7 is only about{' '}
-        {formatPercent(probAtLeastOne(p.dragon7, Math.round(handsPerHit(p.dragon7))), 0)}, and droughts of 150 hands or more are routine.
+        &ldquo;Once every {formatNumber(handsPerHit(p.dragon7), 0)} hands&rdquo; is an average, not a schedule: in {formatNumber(handsPerHit(p.dragon7), 0)} hands the
+        chance of seeing at least one Dragon 7 is only about {formatPercent(probAtLeastOne(p.dragon7, Math.round(handsPerHit(p.dragon7))), 0)}, and about one
+        gap in {formatNumber(1 / Math.pow(1 - p.dragon7, 100), 0)} runs past 100 hands without one.
       </p>
     </Widget>
   );

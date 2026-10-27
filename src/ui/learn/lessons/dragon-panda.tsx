@@ -12,7 +12,7 @@ import { SampleHand, type SampleHandSpec } from './widgets/SampleHand';
 const SECTIONS = [
   { id: 'what', title: 'What counts and what does not' },
   { id: 'push', title: 'The push that pays the commission' },
-  { id: 'sidebets', title: 'The side bets: 40 to 1 and 25 to 1' },
+  { id: 'sidebets', title: 'The side bets: 40 to 1 and 25 to 1' }, // title is made from the table's payouts at render time
   { id: 'table', title: 'At the table' },
   { id: 'beat', title: 'Can they be beaten?' },
 ] as const;
@@ -31,13 +31,16 @@ export function DragonPandaLesson(): ReactNode {
   const d7Edge = houseEdge('dragon7', rules);
   const p8Edge = houseEdge('panda8', rules);
   const bankerFair = p.banker - p.player;
-  const commissionCost = 0.05 * p.banker;
+  const commissionRate = rules.commissionRate;
+  const commissionCost = commissionRate * p.banker;
   const pushCost = p.dragon7;
+  const sideBetsTitle = `The side bets: ${rules.dragon7Pays} to 1 and ${rules.panda8Pays} to 1`;
+  const sections = SECTIONS.map((s) => (s.id === 'sidebets' ? { ...s, title: sideBetsTitle } : s));
 
   return (
     <LessonPage
       id="dragon-panda"
-      sections={SECTIONS}
+      sections={sections}
       lede="EZ Baccarat replaces the 5% Banker commission with a single rule — a Banker win on a three-card 7 is a push — and sells side bets on that hand and on its mirror image, the Player’s three-card 8. Here is exactly how both work and what they cost."
     >
       <Section id="what" number={1} title="What counts and what does not">
@@ -63,7 +66,7 @@ export function DragonPandaLesson(): ReactNode {
         <Facts
           items={[
             { label: 'Banker edge at even money', value: `+${formatPercent(bankerFair, 2)}`, sub: 'in the player’s favour, before the charge', tone: 'positive' },
-            { label: '5% commission costs', value: formatPercent(commissionCost, 2), sub: `5% × ${formatPercent(p.banker, 2)} Banker wins`, tone: 'negative' },
+            { label: `${formatPercent(commissionRate, 0)} commission costs`, value: formatPercent(commissionCost, 2), sub: `${formatPercent(commissionRate, 0)} × ${formatPercent(p.banker, 2)} Banker wins`, tone: 'negative' },
             { label: 'Dragon 7 push costs', value: formatPercent(pushCost, 2), sub: `one bet lost on ${formatPercent(p.dragon7, 2)} of hands`, tone: 'negative' },
             { label: 'House edge, classic', value: formatPercent(commissionCost - bankerFair, 2), sub: 'commission − advantage' },
             { label: 'House edge, EZ', value: formatPercent(pushCost - bankerFair, 2), sub: 'push − advantage', tone: 'gold' },
@@ -79,7 +82,7 @@ export function DragonPandaLesson(): ReactNode {
         </Prose>
       </Section>
 
-      <Section id="sidebets" number={3} title="The side bets: 40 to 1 and 25 to 1">
+      <Section id="sidebets" number={3} title={sideBetsTitle}>
         <Prose>
           <p>
             The same two hands can be bet on directly. The Dragon 7 pays {formatOdds(rules.dragon7Pays)} and happens on {formatPercent(p.dragon7, 2)} of
