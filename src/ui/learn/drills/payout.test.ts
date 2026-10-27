@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RULES, RULE_PRESETS, createRng, dealFromValues, handTotal, isBetEnabled, limitsFor, settleBets } from '@/engine';
+import { DEFAULT_RULES, RULE_PRESETS, cloneRules, createRng, dealFromValues, handTotal, isBetEnabled, limitsFor, settleBets } from '@/engine';
 import type { BetType } from '@/engine';
 import { describeOutcome, explainSettlement, generatePayoutQuestion, isNetCorrect, outcomeBadges, parseNetAnswer, signedMoney } from './payout';
 import { questionSeed } from './seeds';
@@ -77,6 +77,27 @@ describe('generatePayoutQuestion', () => {
       }
     }
     expect(halfPay).toBeGreaterThan(5);
+  });
+
+  it('keeps every bet within unusual table limits and still settles exactly like the engine (6 decks, tie 9:1, side min $25)', () => {
+    const rules = { ...cloneRules(DEFAULT_RULES), decks: 6 as const, tiePays: 9, limits: { main: { min: 25, max: 100 }, tie: { min: 10, max: 50 }, side: { min: 25, max: 25 } } };
+    let tieWin = false;
+    for (let seed = 0; seed < 300; seed++) {
+      const q = generatePayoutQuestion(createRng(questionSeed(seed, 0)), rules);
+      for (const [bet, amount] of Object.entries(q.bets) as [BetType, number][]) {
+        const { min, max } = limitsFor(bet, rules);
+        expect(amount).toBeGreaterThanOrEqual(min);
+        expect(amount).toBeLessThanOrEqual(max);
+      }
+      expect(q.settlement).toEqual(settleBets(q.bets, q.result, rules));
+      const tie = q.settlement.settlements.find((s) => s.bet === 'tie');
+      if (tie && tie.result === 'win') {
+        tieWin = true;
+        expect(tie.net).toBe(tie.amount * 9);
+        expect(explainSettlement(tie, q.result, rules)).toMatch(/9:1/);
+      }
+    }
+    expect(tieWin).toBe(true);
   });
 
   it('is deterministic for a seed', () => {

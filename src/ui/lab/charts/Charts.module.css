@@ -1,0 +1,98 @@
+/* Hand-rolled SVG charts: thin marks, hairline grid, text in text tokens, polarity colours for above/below the start. */
+.figure { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; }
+.caption { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.captionTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+}
+.captionSub { font-size: var(--text-xs); color: var(--ivory-muted); }
+
+.frame {
+  position: relative;
+  min-width: 0;
+  padding: 6px 4px 0;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px var(--border);
+  outline: none;
+}
+.frame:focus-visible { box-shadow: inset 0 0 0 1px var(--border), var(--focus-ring); }
+.plot { position: relative; min-width: 0; }
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  overflow: visible;
+  font-family: var(--font-body);
+  touch-action: pan-y;
+}
+
+.grid { stroke: rgba(243, 234, 216, 0.1); stroke-width: 1; shape-rendering: crispEdges; }
+.axis { stroke: rgba(243, 234, 216, 0.32); stroke-width: 1; shape-rendering: crispEdges; }
+.tick { fill: var(--ivory-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+.bar { transition: opacity var(--dur-fast); }
+.barBelow { fill: var(--loss); opacity: 0.82; }
+.barAbove { fill: var(--win); opacity: 0.82; }
+.barAcross { fill: var(--ivory-dim); opacity: 0.82; }
+.barHover { opacity: 1; filter: brightness(1.18); }
+
+.startLine { stroke: var(--gold-light); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.startLabel { fill: var(--gold-light); font-size: 11px; font-weight: 600; }
+
+.line { fill: none; stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; opacity: 0.6; }
+.lineAbove { stroke: var(--win); }
+.lineBelow { stroke: var(--loss); }
+.lineFlat { stroke: var(--ivory-dim); }
+
+.crosshair { stroke: var(--ivory); stroke-width: 1; opacity: 0.6; shape-rendering: crispEdges; }
+.dot { stroke: #0a1d13; stroke-width: 2; }
+.dotAbove { fill: var(--win); }
+.dotBelow { fill: var(--loss); }
+.dotFlat { fill: var(--ivory-dim); }
+
+.tooltip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(6, 20, 13, 0.96);
+  box-shadow: 0 0 0 1px var(--border-strong), var(--shadow-md);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--ivory);
+  white-space: nowrap;
+}
+.tooltipTitle { color: var(--ivory-dim); }
+.tooltipRow { display: flex; justify-content: space-between; gap: 12px; }
+.tooltipValue { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0 2px; list-style: none; font-size: var(--text-xs); color: var(--ivory-dim); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.swatchBelow { background: var(--loss); }
+.swatchAbove { background: var(--win); }
+.swatchAcross { background: var(--ivory-dim); }
+.key { width: 16px; height: 3px; border-radius: 2px; flex: none; }
+.keyAbove { background: var(--win); }
+.keyBelow { background: var(--loss); }
+.keyStart { height: 0; border-top: 2px dashed var(--gold-light); border-radius: 0; }
+
+.status { margin: 0; min-height: 1.3em; font-size: var(--text-xs); color: var(--ivory-dim); font-variant-numeric: tabular-nums; }
+.hint { margin: 0; font-size: var(--text-xs); color: var(--ivory-faint); }
+
+.details { font-size: var(--text-xs); color: var(--ivory-dim); }
+.details summary { cursor: pointer; color: var(--gold-light); font-weight: 600; }
+.tableWrap { max-height: 240px; margin-top: 6px; overflow: auto; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--border); }
+.table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.table th, .table td { padding: 4px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.table th { position: sticky; top: 0; background: #0c2a1b; color: var(--gold-light); font-weight: 600; font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; }
+.table th:first-child, .table td:first-child { text-align: left; }
+
+.empty { padding: 28px 12px; text-align: center; color: var(--ivory-muted); font-size: var(--text-sm); }

@@ -49,7 +49,8 @@ export {
   cumulativeCounts,
   cardTagOf,
   trueCountEstimate,
+  decksLeft,
   formatCount,
   parseCountAnswer,
 } from './counting';
-export type { DrillCountSystem, CountPaceId } from './counting';
+export type { DrillCountSystem, DrillCountSystemId, CountPaceId } from './counting';

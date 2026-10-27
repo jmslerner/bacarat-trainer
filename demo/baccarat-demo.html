@@ -347,6 +347,8 @@ body.no-tips [data-term] { cursor: inherit; }
 .glossary dd { margin: 0; max-width: 70ch; }
 @media (max-width: 640px) { .glossary dl { grid-template-columns: 1fr; gap: 2px 0; } .glossary dd { margin-bottom: 8px; } }
 .hint { font-size: 12px; color: var(--ivory-dim); text-align: center; }
+.focus-hint { color: #ffd166; }
+body:focus { outline: none; }
 .btn.big { padding: 12px 30px; font-size: 15px; }
 .btn.small { padding: 6px 12px; font-size: 11px; }
 .seg { display: inline-flex; border: 1px solid var(--gold-dim); border-radius: 999px; overflow: hidden; background: rgba(0,0,0,.25); }
@@ -418,6 +420,7 @@ body.no-tips [data-term] { cursor: inherit; }
           <button class="btn" id="clear">CLEAR</button>
           <button class="btn" id="auto" aria-pressed="false">AUTO</button>
         </div>
+        <div class="hint focus-hint" id="focus-hint" hidden>Click the table once to enable the keyboard shortcuts</div>
         <div class="ctl-row">
           <div class="seg" role="group" aria-label="Dealing speed" id="speed-seg"><button type="button" data-speed="instant" aria-pressed="false">Instant</button><button type="button" data-speed="fast" aria-pressed="false">Fast</button><button type="button" data-speed="normal" aria-pressed="true">Normal</button><button type="button" data-speed="slow" aria-pressed="false">Slow</button></div>
           <button class="btn small" id="settings-toggle" aria-expanded="false" aria-controls="settings">TABLE RULES</button>
@@ -1118,12 +1121,12 @@ $('clear').addEventListener('click', clearBets);
 $('auto').addEventListener('click', () => { S.auto = !S.auto; renderButtons(); if (S.auto) { if (betsTotal(S.bets) && !canDeal()) deal(); else if (betsTotal(S.lastBets)) autoNext(); else { S.auto = false; renderButtons(); showErr('Place a bet first, then turn on AUTO to repeat it every hand'); } } });
 $('newshoe').addEventListener('click', () => { if (S.animating) return; newShoe(true); renderAll(); });
 $('buyin').addEventListener('click', () => { S.bankroll += 1000; S.startBankroll += 1000; S.stats.peak = Math.max(S.stats.peak, S.bankroll); renderBankroll(); renderButtons(); renderCoach(); say('Buy-in: ' + fmt$(1000) + ' added to your bankroll'); });
-$('rule-banker').addEventListener('change', (e) => { S.rules.banker = e.target.value; newShoe(true); renderAll(); });
-$('rule-decks').addEventListener('change', (e) => { S.rules.decks = Number(e.target.value); newShoe(true); renderAll(); });
+$('rule-banker').addEventListener('change', (e) => { S.rules.banker = e.target.value; e.target.blur(); newShoe(true); renderAll(); });
+$('rule-decks').addEventListener('change', (e) => { S.rules.decks = Number(e.target.value); e.target.blur(); newShoe(true); renderAll(); });
 document.querySelectorAll('#speed-seg button').forEach((b) => b.addEventListener('click', () => { S.speed = b.dataset.speed; document.querySelectorAll('#speed-seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
 $('settings-toggle').addEventListener('click', () => { const el = $('settings'); el.hidden = !el.hidden; $('settings-toggle').setAttribute('aria-expanded', String(!el.hidden)); });
 $('keys-toggle').addEventListener('click', () => { const el = $('keys-hint'); el.hidden = !el.hidden; $('keys-toggle').setAttribute('aria-expanded', String(!el.hidden)); });
-$('rule-tie').addEventListener('change', (e) => { S.rules.tiePays = Number(e.target.value); renderAll(); });
+$('rule-tie').addEventListener('change', (e) => { S.rules.tiePays = Number(e.target.value); e.target.blur(); renderAll(); });
 $('askP').addEventListener('click', () => showAsk('player'));
 $('askB').addEventListener('click', () => showAsk('banker'));
 function showAsk(side) {
@@ -1131,16 +1134,31 @@ function showAsk(side) {
   const dot = (c) => '<span class="dot ' + (c || 'none') + '" title="' + (c || 'no entry') + '"></span>';
   $('ask-out').innerHTML = 'If next is <b>' + (side === 'player' ? 'P' : 'B') + '</b>: big eye boy ' + dot(p.bigEye) + ' small road ' + dot(p.small) + ' cockroach pig ' + dot(p.cockroach);
 }
+// Keyboard shortcuts. Modifier combinations (Cmd+C, Ctrl+R, ...) are left to the browser; typing in a field is ignored;
+// a focused button is blurred before Space/A so the key does not also activate the button; key auto-repeat never places bets.
+const blurButton = () => { const a = document.activeElement; if (a && a.tagName === 'BUTTON') a.blur(); };
 document.addEventListener('keydown', (ev) => {
-  if (ev.target.matches('input, select, textarea') || $('view-play').hidden) return;
-  const k = ev.key.toLowerCase();
-  const chipIdx = '123456'.indexOf(ev.key);
-  if (chipIdx >= 0) { S.selectedChip = CHIPS[chipIdx]; renderTray(); return; }
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const t = ev.target;
+  if (t && t.matches && t.matches('input, select, textarea, [contenteditable]')) return;
+  if ($('view-play').hidden) return;
+  if (ev.key === 'Escape') { hideTip(); if (S.auto) { S.auto = false; renderButtons(); say('Auto-deal stopped'); } return; }
+  const single = ev.key.length === 1;
+  const chipIdx = single ? '123456'.indexOf(ev.key) : -1;
+  if (chipIdx >= 0) { S.selectedChip = CHIPS[chipIdx]; renderTray(); ev.preventDefault(); return; }
+  if (ev.repeat) return;
+  const k = single ? ev.key.toLowerCase() : ev.key;
   const map = { p: 'player', b: 'banker', t: 'tie', d: 'dragon7', n: 'panda8', '[': 'playerPair', ']': 'bankerPair' };
-  if (map[k]) { showErr(placeBet(map[k], S.selectedChip)); ev.preventDefault(); return; }
-  if (ev.key === ' ') { ev.preventDefault(); deal(); }
-  else if (k === 'r') rebet(); else if (k === 'u') undoChip(); else if (k === 'c') clearBets(); else if (k === 'a') $('auto').click();
+  if (map[k]) { ev.preventDefault(); showErr(placeBet(map[k], S.selectedChip)); return; }
+  if (k === ' ' || ev.code === 'Space') { ev.preventDefault(); blurButton(); deal(); return; }
+  if (k === 'r') { ev.preventDefault(); blurButton(); rebet(); }
+  else if (k === 'u') { ev.preventDefault(); undoChip(); }
+  else if (k === 'c') { ev.preventDefault(); clearBets(); }
+  else if (k === 'a') { ev.preventDefault(); blurButton(); $('auto').click(); }
 });
+// Inside an embedded viewer the page has no keyboard focus until it is clicked: say so, and try to take focus on load.
+function updateFocusHint() { $('focus-hint').hidden = document.hasFocus(); }
+window.addEventListener('focus', updateFocusHint); window.addEventListener('blur', updateFocusHint);
 
 // ---------- routing ----------
 function route() {
@@ -1346,6 +1364,8 @@ annotateTerms(document.body);
 document.querySelector('.spot[data-bet="dragon7"] .name').insertAdjacentHTML('afterbegin', '<span class="medal-sm">' + MEDALS.dragon7.replace(/id="(\w+)"/g, 'id="$1s"').replace(/url\(#(\w+)\)/g, 'url(#$1s)') + '</span>');
 document.querySelector('.spot[data-bet="panda8"] .name').insertAdjacentHTML('afterbegin', '<span class="medal-sm">' + MEDALS.panda8.replace(/id="(\w+)"/g, 'id="$1s"').replace(/url\(#(\w+)\)/g, 'url(#$1s)') + '</span>');
 renderTray(); newShoe(true); renderAll(); route();
+try { document.body.tabIndex = -1; document.body.focus({ preventScroll: true }); } catch (err) { /* focus may be refused inside an embedded viewer */ }
+updateFocusHint();
 </script>
 
 </body>

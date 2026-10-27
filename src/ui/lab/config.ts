@@ -110,7 +110,7 @@ export interface LabPreset {
   patch: LabPresetPatch;
 }
 
-export const LAB_PRESETS: readonly LabPreset[] = Object.freeze([
+const presets: LabPreset[] = [
   {
     id: 'flatBanker',
     name: 'Flat Banker',
@@ -141,7 +141,9 @@ export const LAB_PRESETS: readonly LabPreset[] = Object.freeze([
     blurb: 'A positive progression on Banker: 1, 3, 2 then 6 units on consecutive wins.',
     patch: { selectorId: 'alwaysBanker', systemId: 'oneThreeTwoSix', systemParams: {}, dragon7: 'never', panda8: 'never' },
   },
-]);
+];
+
+export const LAB_PRESETS: readonly LabPreset[] = Object.freeze(presets);
 
 export function getLabPreset(id: string): LabPreset | undefined {
   return LAB_PRESETS.find((p) => p.id === id);

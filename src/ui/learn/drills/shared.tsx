@@ -105,13 +105,34 @@ export interface FeedbackProps {
   actions?: ReactNode;
 }
 
+/** True when the user prefers reduced motion (false when the query is unavailable). */
+function prefersReducedMotion(): boolean {
+  try {
+    return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
 export function Feedback({ correct, headline, children, onNext, nextLabel = 'Next question', actions }: FeedbackProps): JSX.Element {
   const nextRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     nextRef.current?.focus({ preventScroll: true });
+    // On a phone the panel renders below the fold: bring the verdict into view (the sticky top bar is allowed
+    // for by `scroll-margin-top` in the stylesheet). Nothing moves when the panel is already visible.
+    const panel = panelRef.current;
+    if (!panel || typeof panel.scrollIntoView !== 'function' || typeof window === 'undefined') return;
+    const viewportHeight = window.innerHeight || 0;
+    if (viewportHeight <= 0 || panel.getBoundingClientRect().top <= viewportHeight - 96) return;
+    try {
+      panel.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    } catch {
+      /* ignore */
+    }
   }, []);
   return (
-    <div className={cx(styles.feedback, correct ? styles.feedbackCorrect : styles.feedbackWrong)} data-testid="drill-feedback" data-correct={correct ? 'true' : 'false'}>
+    <div ref={panelRef} className={cx(styles.feedback, correct ? styles.feedbackCorrect : styles.feedbackWrong)} data-testid="drill-feedback" data-correct={correct ? 'true' : 'false'}>
       <div className={styles.verdictRow}>
         <span className={styles.verdict}>{correct ? 'Correct' : 'Not quite'}</span>
         <h3 className={styles.headline}>{headline}</h3>

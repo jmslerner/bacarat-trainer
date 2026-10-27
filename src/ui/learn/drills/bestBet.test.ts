@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BET_TYPES, DEFAULT_RULES, RULE_PRESETS, createRng, houseEdge, isBetEnabled } from '@/engine';
+import { BET_TYPES, DEFAULT_RULES, RULE_PRESETS, cloneRules, createRng, houseEdge, isBetEnabled } from '@/engine';
 import { betPaysLabel, explainBestBet, formatEdge, generateBestBetQuestion } from './bestBet';
 import { questionSeed } from './seeds';
 
@@ -37,6 +37,38 @@ describe('generateBestBetQuestion', () => {
       for (const o of q.options) {
         expect(o.bet).not.toBe('dragon7');
         expect(o.bet).not.toBe('panda8');
+      }
+    }
+  });
+
+  it('offers exactly Player, Banker and Tie when no side bet is dealt, with the right answer for both modes', () => {
+    const rules = { ...cloneRules(DEFAULT_RULES), sideBets: { dragon7: false, panda8: false, pairs: false } };
+    let lowest = 0;
+    let highest = 0;
+    for (let seed = 0; seed < 120; seed++) {
+      const q = generateBestBetQuestion(createRng(questionSeed(seed, 0)), rules);
+      expect(q.options.map((o) => o.bet).sort()).toEqual(['banker', 'player', 'tie']);
+      if (q.mode === 'lowest') {
+        lowest++;
+        expect(q.answer).toBe('banker');
+      } else {
+        highest++;
+        expect(q.answer).toBe('tie');
+      }
+    }
+    expect(lowest).toBeGreaterThan(60);
+    expect(highest).toBeGreaterThan(10);
+  });
+
+  it('uses the active table’s deck count and tie payout for the edges (6 decks, tie 9:1)', () => {
+    const rules = { ...cloneRules(DEFAULT_RULES), decks: 6 as const, tiePays: 9 };
+    for (let seed = 0; seed < 60; seed++) {
+      const q = generateBestBetQuestion(createRng(questionSeed(seed, 0)), rules);
+      for (const o of q.options) expect(o.edge).toBeCloseTo(houseEdge(o.bet, rules), 12);
+      const tie = q.options.find((o) => o.bet === 'tie');
+      if (tie) {
+        expect(tie.pays).toBe('9:1');
+        expect(tie.edge).toBeCloseTo(0.049313, 5);
       }
     }
   });

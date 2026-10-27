@@ -123,6 +123,13 @@ describe('DrillsHub', () => {
     expect(window.location.hash).toBe('#learn/drills');
     await waitFor(() => expect(screen.getByTestId('drills-hub')).toBeInTheDocument());
   });
+
+  it('shows the hub for an unknown drill id in the hash', () => {
+    window.location.hash = '#learn/drills/nope';
+    render(<DrillsHub seed={11} />);
+    expect(screen.getByTestId('drills-hub')).toBeInTheDocument();
+    expect(document.querySelector('[data-drill]')).toBeNull();
+  });
 });
 
 describe('ThirdCardDrill', () => {
