@@ -11,7 +11,13 @@ and where the only real edge (counting the side bets) comes from.
 * Felt layout with the EZ Baccarat spots: Player Pair · Player · Tie · Banker · Banker Pair along the bottom arc,
   Dragon 7 (40:1) and Panda 8 (25:1) in the middle band; Banker red, Player blue, Tie green, as on casino displays.
 * Real chip denominations in US colours ($1 white, $5 red, $25 green, $100 black, $500 purple, $1,000 "pumpkin",
-  $5,000 brown), a bankroll, table limits ("Min $10 — Max $5,000", Tie and side bets $5–$500), buy-in and rebuy.
+  $5,000 brown, $25,000 grey, $100,000 gold plaque), a bankroll, a limits plaque naming the table ("$10 mini-baccarat",
+  "Min $10 — Max $5,000", Tie and side bets $5–$500), buy-in and rebuy.
+* **Table levels**: five Las Vegas stakes tiers in Settings → Rules — $10 mini-baccarat, $25 main floor, $100
+  midi-baccarat, $500 high-limit salon ($500–$100,000) and the $5,000 special limit ($5,000–$250,000) — each with its
+  own Tie and side-bet limits and chip tray, plus custom limits. Switching tables resets the bankroll to the table's
+  suggested buy-in (100 × the minimum) while the session stats carry on; the lessons and the Lab follow the table too.
+  At a new table you pick up its base chip, and a rebet is only offered while the last bets are dealable there.
 * Casino procedure: an 8-deck (or 6-deck) shoe with the cut card 14 cards from the end, the burn procedure (first card
   exposed, that many cards burned), card-by-card dealing with the dealer's calls ("Card to Player", "Player shows 5,
   Banker shows 3", "Player draws", "Banker wins, 7 over 5", "Dragon 7!"), third cards placed sideways, the
@@ -23,8 +29,8 @@ and where the only real edge (counting the side bets) comes from.
   bets on the layout, Dragon 7 and Panda 8 running/true counts with a recommendation, streak, realized edge,
   one-line "why" explanations of every dealer call).
 * Rule variants in Settings: EZ (default), classic 5% commission (with a commission box), Super 6; 6 or 8 decks;
-  Tie 8:1 or 9:1; side bets on/off; limits, cut card, burn procedure and the chip tray are all editable.
-* Keyboard: `1`–`6` select a chip, `P` `B` `T` place on Player / Banker / Tie, `D` Dragon 7, `N` Panda 8, `Space` deal
+  Tie 8:1 or 9:1; side bets on/off; table level, limits, cut card, burn procedure and the chip tray are all editable.
+* Keyboard: `1`–`9` select a chip, `P` `B` `T` place on Player / Banker / Tie, `D` Dragon 7, `N` Panda 8, `Space` deal
   (or fast-forward), `R` rebet, `C` clear, `U` undo, `A` auto-deal; `Tab` + `Enter` reach every control.
 
 ### Learn — lessons and drills

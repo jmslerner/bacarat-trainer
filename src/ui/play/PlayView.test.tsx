@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { DEFAULT_RULES, RULE_PRESETS, totalOnLayout } from '@/engine';
+import { DEFAULT_RULES, RULE_PRESETS, applyTableLevel, totalOnLayout } from '@/engine';
 import { buyInStore, DEFAULT_PREFS, getDisplayedBankroll, getSession, prefsStore, resetSession, rulesStore } from '@/ui/shell';
-import { PlayView } from './PlayView';
+import { PlayView, defaultChip } from './PlayView';
 import { clearHistory } from './history/historyStore';
 
 function setup(opts: { bankroll?: number; seed?: number } = {}) {
@@ -27,6 +27,7 @@ if (typeof window.PointerEvent === 'undefined') {
 const spot = (bet: string): HTMLButtonElement => document.querySelector(`[data-bet="${bet}"]`) as HTMLButtonElement;
 const chip = (value: number): HTMLButtonElement => screen.getByTestId(`chip-${value}`) as HTMLButtonElement;
 const dealButton = (): HTMLButtonElement => screen.getByTestId('deal-button') as HTMLButtonElement;
+const liveSession = (): ReturnType<typeof getSession> => getSession();
 const tableBankroll = (): string => (screen.getByTestId('table-bankroll').querySelector('[data-value]') as HTMLElement).textContent ?? '';
 
 beforeEach(() => {
@@ -56,6 +57,35 @@ describe('PlayView — betting', () => {
     expect(screen.getByText(/Min \$10 — Max \$5,000/)).toBeTruthy();
     expect(screen.getByTestId('dealer-call').textContent).toMatch(/place your bets/i);
     expect(screen.queryByTestId('commission-box')).toBeNull();
+  });
+
+  it('the limits plaque names the table level, the tray shows the salon chips, and keys 7–9 reach a nine-chip tray', () => {
+    rulesStore.set(applyTableLevel(DEFAULT_RULES, 'high'));
+    setup({ bankroll: 50000 });
+    const plaque = screen.getByTestId('table-limits');
+    expect(plaque.textContent).toMatch(/\$500 high-limit salon/);
+    expect(plaque.textContent).toMatch(/Min \$500 — Max \$100,000/);
+    expect(plaque.textContent).toMatch(/Tie \$500–\$10,000 · Side \$100–\$5,000/);
+    expect(plaque.getAttribute('data-level')).toBe('high');
+    expect(plaque.getAttribute('title')).toMatch(/^\$500 high-limit salon — Salon play with limits raised for rated players\. Player and Banker \$500–\$100,000, Tie \$500–\$10,000/);
+    for (const v of [100, 500, 1000, 5000, 25000, 100000]) expect(chip(v)).toBeTruthy();
+    expect(screen.queryByTestId('chip-25')).toBeNull();
+    expect(chip(100000).textContent).toBe('100K');
+    expect(chip(100000).getAttribute('aria-label')).toBe('$100,000 chip');
+    expect(chip(500).getAttribute('aria-pressed')).toBe('true'); // the first chip at or above the $500 minimum
+    expect(tableBankroll()).toBe('$50,000');
+
+    act(() => {
+      rulesStore.set({ ...applyTableLevel(DEFAULT_RULES, 'high'), chipDenominations: [1, 5, 25, 100, 500, 1000, 5000, 25000, 100000] });
+    });
+    expect(screen.getByTestId('table-limits').textContent).toMatch(/Custom limits/);
+    expect(screen.getByTestId('table-limits').getAttribute('data-level')).toBe('custom');
+    fireEvent.keyDown(window, { key: '9' });
+    expect(chip(100000).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.keyDown(window, { key: '7' });
+    expect(chip(5000).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.keyDown(window, { key: '1' });
+    expect(chip(1).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('places chips on spots, stacks them with the total and enables DEAL', () => {
@@ -163,6 +193,94 @@ describe('PlayView — betting', () => {
     expect(fireEvent.keyDown(spot('banker'), { key: ' ' })).toBe(true);
     expect(session.getState().totalHands).toBe(1);
     fireEvent.pointerDown(document.body);
+  });
+});
+
+describe('PlayView — table levels', () => {
+  it('defaultChip picks $25 when it covers the main minimum, otherwise the smallest chip that does', () => {
+    expect(defaultChip([1, 5, 25, 100, 500, 1000], 10)).toBe(25);
+    expect(defaultChip([5, 25, 100, 500, 1000, 5000], 25)).toBe(25);
+    expect(defaultChip([25, 100, 500, 1000, 5000, 25000], 100)).toBe(100);
+    expect(defaultChip([100, 500, 1000, 5000, 25000, 100000], 500)).toBe(500);
+    expect(defaultChip([1000, 5000, 25000, 100000], 5000)).toBe(5000);
+    expect(defaultChip([1, 5], 10)).toBe(5);
+    expect(defaultChip([], 10)).toBe(1);
+  });
+
+  it('a fresh seat at the $100 midi table holds a $100 chip, not the $25 that is also in its tray', () => {
+    rulesStore.set(applyTableLevel(DEFAULT_RULES, 'midi'));
+    setup({ bankroll: 10000 });
+    expect(chip(25)).toBeTruthy();
+    expect(chip(100).getAttribute('aria-pressed')).toBe('true');
+    expect(chip(25).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('moving tables hands you the new base chip and drops a rebet the table will not deal; a tray-only edit keeps the chip in hand', () => {
+    vi.useFakeTimers();
+    const { session } = setup({ bankroll: 1000, seed: 42 });
+    /** Lets the new shoe's shuffle sequence (started by a rules change) play out. */
+    const settle = (): void => {
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.getByTestId('play-view').getAttribute('data-phase')).not.toBe('shuffling');
+    };
+    fireEvent.click(spot('banker')); // $25
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    expect(session.getState().lastBets).toEqual({ banker: 25 });
+    expect(screen.getByTestId('deal-reason').textContent).toBe('Rebet (R) to play $25 again, or place chips');
+    // → the $500 salon: the $25 Banker bet cannot be repeated there, so it is not offered and R places nothing.
+    act(() => {
+      rulesStore.set(applyTableLevel(DEFAULT_RULES, 'high'));
+      session.setBankroll(50000);
+    });
+    settle();
+    expect(chip(500).getAttribute('aria-pressed')).toBe('true');
+    const rebet = screen.getByTestId('rebet-button') as HTMLButtonElement;
+    expect(rebet.disabled).toBe(true);
+    expect(rebet.textContent).not.toMatch(/\$25/);
+    expect(rebet.getAttribute('title')).toBe('The last bets cannot be repeated at this table: Banker bet of $25 is below the table minimum of $500');
+    expect(screen.getByTestId('deal-reason').textContent).toBe('Place a bet to deal');
+    fireEvent.keyDown(window, { key: 'r' });
+    expect(session.getState().bets).toEqual({});
+    expect(totalOnLayout(session.getState().bets)).toBe(0);
+    expect(dealButton().disabled).toBe(true);
+    // → the $100 midi table: $25 is in its tray, but a new table hands you its base chip.
+    act(() => {
+      rulesStore.set(applyTableLevel(DEFAULT_RULES, 'midi'));
+    });
+    settle();
+    expect(chip(25)).toBeTruthy();
+    expect(chip(100).getAttribute('aria-pressed')).toBe('true');
+    // A chip-tray-only edit is not a table move: the chip in hand stays.
+    fireEvent.click(chip(25));
+    act(() => {
+      rulesStore.set({ ...applyTableLevel(DEFAULT_RULES, 'midi'), chipDenominations: [5, 25, 100, 500, 1000, 5000, 25000] });
+    });
+    settle();
+    expect(chip(5)).toBeTruthy();
+    expect(chip(25).getAttribute('aria-pressed')).toBe('true');
+    // Back at the $10 table the old $25 Banker bet is repeatable again.
+    act(() => {
+      rulesStore.set(DEFAULT_RULES);
+    });
+    settle();
+    expect(screen.getByTestId('rebet-button').textContent).toMatch(/\$25/);
+    expect((screen.getByTestId('rebet-button') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId('deal-reason').textContent).toBe('Rebet (R) to play $25 again, or place chips');
+    fireEvent.keyDown(window, { key: 'r' });
+    expect(session.getState().bets).toEqual({ banker: 25 });
+  });
+
+  it('a bankroll below the table minimum gets a buy-in hint when a chip is refused', () => {
+    rulesStore.set(applyTableLevel(DEFAULT_RULES, 'high'));
+    setup({ bankroll: 300 });
+    fireEvent.click(chip(500));
+    fireEvent.click(spot('banker'));
+    expect(screen.getByTestId('notice').textContent).toBe('Not enough bankroll: only $300 left to bet — your bankroll is below the $500 table minimum; Buy-in to keep playing');
+    expect(liveSession().getState().bets).toEqual({});
   });
 });
 

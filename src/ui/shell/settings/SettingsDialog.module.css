@@ -35,6 +35,29 @@
 .presetDesc { font-size: var(--text-xs); color: var(--ivory-dim); line-height: 1.35; }
 .custom { margin: 0; font-size: var(--text-xs); color: var(--ivory-muted); font-style: italic; }
 
+.levels { display: flex; flex-direction: column; gap: 6px; }
+.level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ivory);
+  text-align: left;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.level:hover { border-color: var(--border-strong); }
+.levelActive { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 14px var(--gold-glow); }
+.level:focus-visible { border-color: var(--gold-light); box-shadow: var(--focus-ring); }
+.levelActive:focus-visible { box-shadow: var(--focus-ring), 0 0 14px var(--gold-glow); }
+.levelName { flex: 1 1 auto; font-family: var(--font-display); font-weight: 700; font-size: var(--text-sm); color: var(--gold-light); letter-spacing: 0.04em; }
+.levelBuyIn { margin-left: auto; font-size: var(--text-xs); color: var(--ivory-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.levelLimits { flex: 1 1 100%; font-size: var(--text-xs); color: var(--ivory-dim); line-height: 1.35; }
+.levelBlurb { font-style: normal; color: var(--ivory-dim); }
+
 .limitRow { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 8px; }
 .limitLabel { font-size: var(--text-sm); color: var(--ivory-dim); }
 .limitDash { color: var(--ivory-muted); }

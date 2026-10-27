@@ -35,7 +35,8 @@ describe('shortcutFor', () => {
   it('maps the documented keys', () => {
     expect(shortcutFor('1')).toEqual({ type: 'chip', index: 0 });
     expect(shortcutFor('6')).toEqual({ type: 'chip', index: 5 });
-    expect(shortcutFor('7')).toBeNull();
+    expect(shortcutFor('9')).toEqual({ type: 'chip', index: 8 });
+    expect(shortcutFor('0')).toBeNull();
     expect(shortcutFor('p')).toEqual({ type: 'bet', bet: 'player' });
     expect(shortcutFor('B')).toEqual({ type: 'bet', bet: 'banker' });
     expect(shortcutFor('t')).toEqual({ type: 'bet', bet: 'tie' });

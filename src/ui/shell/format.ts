@@ -2,6 +2,7 @@
  * Number formatting helpers shared by every view.
  * All functions are pure and safe on non-finite input (they render a dash).
  */
+import type { BetLimits, TableRules } from '@/engine';
 
 const moneyWhole = new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const moneyCents = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -66,4 +67,14 @@ export function formatOdds(toOne: number): string {
 
 function trimZeros(s: string): string {
   return s.includes('.') ? s.replace(/\.?0+$/, '') : s;
+}
+
+/** "$10–$5,000" — a betting range. */
+export function formatLimitRange(limits: BetLimits): string {
+  return `${formatMoney(limits.min)}–${formatMoney(limits.max)}`;
+}
+
+/** "main $10–$5,000 · tie $5–$500 · side $5–$500" — a table's limits in one line. */
+export function formatLimits(limits: TableRules['limits']): string {
+  return `main ${formatLimitRange(limits.main)} · tie ${formatLimitRange(limits.tie)} · side ${formatLimitRange(limits.side)}`;
 }

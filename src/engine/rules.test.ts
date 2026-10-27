@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { bankerDraws, cloneRules, DEFAULT_RULES, isNatural, MIN_CUT_CARD_FROM_END, playerDraws, RULE_PRESETS, validateRules } from './rules';
+import {
+  applyTableLevel,
+  bankerDraws,
+  cloneRules,
+  DEFAULT_RULES,
+  isNatural,
+  limitsEqual,
+  MIN_CUT_CARD_FROM_END,
+  playerDraws,
+  RULE_PRESETS,
+  suggestedBuyIn,
+  TABLE_LEVEL_IDS,
+  TABLE_LEVELS,
+  tableLevelOf,
+  validateRules,
+  validateTableLimits,
+} from './rules';
 import type { TableRules } from './types';
 
 /** SPEC §2 third-card table, written out literally: Banker total → Player third-card values on which Banker DRAWS. */
@@ -136,5 +152,87 @@ describe('rule sets', () => {
 
     const many = bad({ decks: 5 as unknown as 8, tiePays: 0, cutCardFromEnd: 3 });
     expect(many.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('table levels', () => {
+  it('lists the five Las Vegas tiers, lowest first, each deeply frozen with a buy-in of 100 × the main minimum', () => {
+    expect(TABLE_LEVEL_IDS).toEqual(['mini', 'floor', 'midi', 'high', 'private']);
+    expect(TABLE_LEVEL_IDS.map((id) => TABLE_LEVELS[id].name)).toEqual(['$10 mini-baccarat', '$25 main floor', '$100 midi-baccarat', '$500 high-limit salon', '$5,000 special limit']);
+    expect(TABLE_LEVEL_IDS.map((id) => TABLE_LEVELS[id].limits.main.min)).toEqual([10, 25, 100, 500, 5000]);
+    expect(TABLE_LEVEL_IDS.map((id) => TABLE_LEVELS[id].limits.main.max)).toEqual([5000, 10000, 25000, 100000, 250000]);
+    expect(TABLE_LEVELS.high.limits).toEqual({ main: { min: 500, max: 100000 }, tie: { min: 500, max: 10000 }, side: { min: 100, max: 5000 } });
+    expect(TABLE_LEVELS.high.chipDenominations).toEqual([100, 500, 1000, 5000, 25000, 100000]);
+    expect(TABLE_LEVELS.private.chipDenominations).toEqual([1000, 5000, 25000, 100000]);
+    for (const id of TABLE_LEVEL_IDS) {
+      const level = TABLE_LEVELS[id];
+      expect(level.id).toBe(id);
+      expect(level.buyIn).toBe(level.limits.main.min * 100);
+      expect(level.blurb.length).toBeGreaterThan(0);
+      expect(Object.isFrozen(level)).toBe(true);
+      expect(Object.isFrozen(level.limits.side)).toBe(true);
+      expect(Object.isFrozen(level.chipDenominations)).toBe(true);
+      // Side bets and the Tie are capped far below the main bet; every chip fits the main maximum.
+      expect(level.limits.side.max).toBeLessThan(level.limits.main.max);
+      expect(level.limits.tie.max).toBeLessThan(level.limits.main.max);
+      expect(Math.max(...level.chipDenominations)).toBeLessThanOrEqual(level.limits.main.max);
+      expect(Math.min(...level.chipDenominations)).toBeLessThanOrEqual(level.limits.side.min);
+    }
+    // Ascending stakes.
+    for (let i = 1; i < TABLE_LEVEL_IDS.length; i++) {
+      expect(TABLE_LEVELS[TABLE_LEVEL_IDS[i]].limits.main.min).toBeGreaterThan(TABLE_LEVELS[TABLE_LEVEL_IDS[i - 1]].limits.main.min);
+    }
+  });
+
+  it('the default table is the $10 mini-baccarat level', () => {
+    expect(tableLevelOf(DEFAULT_RULES)).toBe('mini');
+    expect(TABLE_LEVELS.mini.limits).toEqual(DEFAULT_RULES.limits);
+    expect(TABLE_LEVELS.mini.chipDenominations).toEqual(DEFAULT_RULES.chipDenominations);
+    expect(suggestedBuyIn(DEFAULT_RULES)).toBe(1000);
+    for (const key of ['ez', 'commission', 'super6'] as const) expect(tableLevelOf(RULE_PRESETS[key].rules)).toBe('mini');
+  });
+
+  it('applyTableLevel keeps everything but the limits and the chip tray, validates, and round-trips through tableLevelOf', () => {
+    for (const id of TABLE_LEVEL_IDS) {
+      for (const key of ['ez', 'commission', 'super6'] as const) {
+        const applied = applyTableLevel(RULE_PRESETS[key].rules, id);
+        expect(validateRules(applied)).toEqual([]);
+        expect(tableLevelOf(applied)).toBe(id);
+        expect(suggestedBuyIn(applied)).toBe(TABLE_LEVELS[id].buyIn);
+        expect(applied.limits).toEqual(TABLE_LEVELS[id].limits);
+        expect(applied.chipDenominations).toEqual(TABLE_LEVELS[id].chipDenominations);
+        const { limits: _l, chipDenominations: _c, ...rest } = applied;
+        const { limits: _pl, chipDenominations: _pc, ...presetRest } = RULE_PRESETS[key].rules;
+        expect(rest).toEqual(presetRest);
+        // A copy: editing it never touches the frozen level or the source rules.
+        expect(Object.isFrozen(applied)).toBe(false);
+        applied.chipDenominations.push(1);
+        applied.limits.main.min = 1;
+        expect(TABLE_LEVELS[id].limits.main.min).not.toBe(1);
+      }
+    }
+  });
+
+  it('tableLevelOf reads "custom" for any edit to the limits or the chip tray, and suggestedBuyIn is then 100 × the main minimum', () => {
+    const high = applyTableLevel(DEFAULT_RULES, 'high');
+    expect(tableLevelOf({ ...high, limits: { ...high.limits, tie: { min: 500, max: 20000 } } })).toBe('custom');
+    expect(tableLevelOf({ ...high, chipDenominations: [...high.chipDenominations, 250000] })).toBe('custom');
+    expect(tableLevelOf({ ...high, chipDenominations: high.chipDenominations.slice(1) })).toBe('custom');
+    const custom: TableRules = { ...cloneRules(DEFAULT_RULES), limits: { main: { min: 50, max: 5000 }, tie: { min: 5, max: 500 }, side: { min: 5, max: 500 } } };
+    expect(tableLevelOf(custom)).toBe('custom');
+    expect(suggestedBuyIn(custom)).toBe(5000);
+    expect(suggestedBuyIn({ ...custom, limits: { ...custom.limits, main: { min: 0, max: 100 } } })).toBe(1000);
+    expect(limitsEqual(DEFAULT_RULES.limits, TABLE_LEVELS.mini.limits)).toBe(true);
+    expect(limitsEqual(DEFAULT_RULES.limits, TABLE_LEVELS.floor.limits)).toBe(false);
+  });
+
+  it('validateTableLimits checks the three ranges on their own', () => {
+    expect(validateTableLimits(DEFAULT_RULES.limits)).toEqual([]);
+    for (const id of TABLE_LEVEL_IDS) expect(validateTableLimits(TABLE_LEVELS[id].limits)).toEqual([]);
+    expect(validateTableLimits(undefined)).toEqual(['Table limits are missing']);
+    expect(validateTableLimits({ main: { min: 100, max: 50 }, tie: { min: 0, max: 500 }, side: { min: 5, max: 500 } })).toEqual([
+      expect.stringMatching(/Main bet maximum \(50\) is below the minimum \(100\)/),
+      expect.stringMatching(/Tie bet minimum/),
+    ]);
   });
 });

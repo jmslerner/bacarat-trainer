@@ -79,8 +79,26 @@ tables), tracked as `commissionPaid` and shown in a "commission box".
 * Table limits: main bets `limits.main` (default $10–$5,000), Tie `limits.tie` (default $5–$500), side bets
   `limits.side` (default $5–$500). Minimums are enforced at DEAL time (a bet below min blocks dealing); maximums
   are enforced when placing chips. The total on the layout can never exceed the bankroll.
+* **Table levels** — five Las Vegas stakes tiers (`TABLE_LEVELS`, selectable in Settings), each a set of limits,
+  a chip tray and a suggested buy-in of 100 × the main minimum. The default table IS the `mini` level; any other
+  limits or chip tray are "custom" (suggested buy-in 100 × the main minimum). Switching tables resets the bankroll
+  to the table's buy-in while the session stats carry on.
+
+  | Level | Table | Player / Banker | Tie | Dragon 7 / Panda 8 / pairs | Chip tray | Buy-in |
+  |---|---|---|---|---|---|---|
+  | `mini` | $10 mini-baccarat | $10–$5,000 | $5–$500 | $5–$500 | 1, 5, 25, 100, 500, 1000 | $1,000 |
+  | `floor` | $25 main floor | $25–$10,000 | $25–$2,500 | $10–$1,000 | 5, 25, 100, 500, 1000, 5000 | $2,500 |
+  | `midi` | $100 midi-baccarat | $100–$25,000 | $100–$5,000 | $25–$2,500 | 25, 100, 500, 1000, 5000, 25000 | $10,000 |
+  | `high` | $500 high-limit salon | $500–$100,000 | $500–$10,000 | $100–$5,000 | 100, 500, 1000, 5000, 25000, 100000 | $50,000 |
+  | `private` | $5,000 special limit | $5,000–$250,000 | $5,000–$25,000 | $1,000–$10,000 | 1000, 5000, 25000, 100000 | $500,000 |
+
+  Facts behind the tiers (Las Vegas): minimums $10–$25 at mini tables, $100–$300 in the main pit, $500–$1,000 in
+  the salons; posted Strip maximums top out around $25,000 a hand; salons post $10,000–$20,000 and grant
+  $100,000–$250,000 to rated players ($500,000 is reported but rare); side bets are capped far lower because of
+  the 40:1 / 25:1 payouts. Limits are set per table and property and change with time of day and demand.
 * Chips (US casino colours): $1 white, $5 red, $25 green, $100 black, $500 purple, $1,000 orange ("pumpkin"),
-  $5,000 brown. Default tray: 1, 5, 25, 100, 500, 1000. Default bankroll $1,000.
+  $5,000 brown, $25,000 grey, $100,000 a gold plaque. Faces read 1 · 5 · 25 · 100 · 500 · 1K · 5K · 25K · 100K.
+  Default tray: 1, 5, 25, 100, 500, 1000. Default bankroll $1,000.
 * Third cards are placed **sideways** (rotated 90°) next to the first two cards, as dealers do.
 
 ## 3. Exact probabilities (ground truth)
@@ -203,7 +221,19 @@ export function isNatural(total: number): boolean;                              
 export const DEFAULT_RULES: TableRules;   // 8 decks, 'ez', tie 8, D7 40, P8 25, pairs 11, all side bets on,
                                           // limits main 10–5000 / tie 5–500 / side 5–500, cut 14, burn on, chips [1,5,25,100,500,1000]
 export const RULE_PRESETS: Record<'ez' | 'commission' | 'super6', { name: string; description: string; rules: TableRules }>;
+//  - variant-only: the presets differ from DEFAULT_RULES in the Banker rule and the EZ side bets alone
 export function validateRules(rules: TableRules): string[];   // human-readable problems, [] if ok
+export function validateTableLimits(limits: TableRules['limits']): string[];   // the limits part of validateRules
+export function limitsEqual(a: TableRules['limits'], b: TableRules['limits']): boolean;
+
+// table levels (§2): limits + chip tray + suggested buy-in, independent of the variant
+export type TableLevelId = 'mini' | 'floor' | 'midi' | 'high' | 'private';
+export interface TableLevel { id: TableLevelId; name: string; limits: TableRules['limits']; chipDenominations: number[]; buyIn: number; blurb: string }
+export const TABLE_LEVEL_IDS: readonly TableLevelId[];                 // lowest stakes first
+export const TABLE_LEVELS: Readonly<Record<TableLevelId, TableLevel>>; // deeply frozen; `mini` is the default table
+export function applyTableLevel(rules: TableRules, id: TableLevelId): TableRules; // clone with the level's limits + chips; rest untouched
+export function tableLevelOf(rules: TableRules): TableLevelId | 'custom';         // exact match on limits AND chip tray
+export function suggestedBuyIn(rules: TableRules): number;                        // the level's buyIn, else 100 × main minimum
 
 // shoe.ts
 export class Shoe {
@@ -263,7 +293,7 @@ export class GameSession {
   removeChip(bet: BetType): void;                   // undo the last chip placed on that spot (keep a per-spot chip stack)
   undoLastChip(): void;                             // undo the most recent chip placed anywhere
   clearBets(): void;
-  rebet(): PlaceBetResult;                          // restore lastBets if affordable
+  rebet(): PlaceBetResult;                          // restore lastBets if affordable AND dealable at the current table (offered, ≤ max, ≥ min)
   canDeal(): { ok: boolean; reason?: string };      // needs ≥1 bet, all bets ≥ their minimum
   deal(): DealOutcome;                              // deals, settles, updates bankroll/stats/history, clears bets into lastBets,
                                                     // handles cut card → one more hand → new shoe automatically
@@ -430,6 +460,19 @@ betting over ≥ 200,000 hands within ±0.3% of the exact EZ Banker edge; martin
   `useSound()` (Web Audio synthesized: chip place, card deal, card flip, win, lose; never throws).
 * `SettingsDialog`: rules preset + full rule editor (decks, banker rule, tie pays, side bets on/off, limits,
   cut card, burn procedure), bankroll buy-in, preferences. Changing rules starts a new shoe (warn).
+  * **Table level** chooser (Rules tab, under the variant presets and above the limits editor): a radio row per
+    tier showing its name, "main … · tie … · side …" and buy-in, with the blurb of the selected one; picking a
+    tier patches the draft's limits and chip tray (`applyTableLevel`). The limits editor and the chip-tray toggles
+    (`STANDARD_CHIP_DENOMINATIONS`: 1 … 5,000, 25,000, 100,000) keep working and make the level read "Custom"
+    (`tableLevelOf`).
+  * `matchPreset` compares only the variant fields (`VARIANT_KEYS`: decks, bankerRule, commissionRate, tiePays,
+    dragon7Pays, panda8Pays, pairPays, sideBets, cutCardFromEnd, burnProcedure), so the level never flips the preset to
+    "Custom"; `applyPreset` / `applyRulePreset` keep the current limits and chip tray.
+  * Apply: `setRules` as before (new shoe); when the table changed (`tableChanged`: limits differ, or a different
+    tier was picked — chip-tray-only edits do not count) the warning says so with the amount, and on Apply the
+    bankroll is set to `suggestedBuyIn(rules)` via `session.setBankroll` (session stats carry on) and `setBuyIn`.
+  * The chosen level is implied by the persisted rules (`bt:rules`); no extra key.
+  * The Bankroll tab's quick buy-in amounts include the current table's suggested buy-in (`suggestedBuyIn`).
 * Export `src/ui/shell/index.ts` with all of the above.
 
 ### 5.5 `src/ui/play`
@@ -440,10 +483,13 @@ betting over ≥ 200,000 hands within ±0.3% of the exact EZ Banker edge; martin
 * Table felt: card areas top ("PLAYER" left in blue, "BANKER" right in red) with totals shown; the shoe at top
   right with a cut-card indicator and cards remaining; betting spots along the bottom arc: PLAYER PAIR,
   PLAYER (1:1), TIE (8:1), BANKER (1:1 / "no commission"), BANKER PAIR; DRAGON 7 (40:1) and PANDA 8 (25:1) spots
-  in the middle band. Limits plaque ("Min $10 — Max $5,000"). Commission box when the classic rule is active.
+  in the middle band. Limits plaque on the rail: the table level ("$500 high-limit salon", or "Custom limits")
+  over "Min $500 — Max $100,000" with the Tie / side sub-line; its tooltip names the level, its blurb and the three
+  ranges. Commission box when the classic rule is active.
 * Chip tray with denominations; click a chip to select, click a spot to add it; chips stack on the spot with the
-  total; right-click/long-press or an "undo" button removes the last chip. Keyboard: 1–6 select chip, P/B/T place
-  on Player/Banker/Tie, D Dragon 7, N Panda 8, Space deal, R rebet, C clear, U undo, A auto-deal.
+  total; right-click/long-press or an "undo" button removes the last chip. Keyboard: 1–9 select the chip in that
+  tray position, P/B/T place on Player/Banker/Tie, D Dragon 7, N Panda 8, Space deal, R rebet, C clear, U undo,
+  A auto-deal.
 * Dealing animation driven by `HandResult.steps`: cards slide from the shoe to their slot and flip, third cards
   sideways, each step's message shown in the dealer bar (`aria-live`), with per-step delays scaled by the speed
   setting (and an "instant" option). Then settlement: winning spots show the payout chips, losing chips are
@@ -452,6 +498,12 @@ betting over ≥ 200,000 hands within ±0.3% of the exact EZ Banker edge; martin
   Banner "Last hand of the shoe" when `lastHandNext`.
 * Controls: DEAL (disabled with reason when `canDeal()` fails), REBET, CLEAR, UNDO, AUTO (auto-rebet and deal
   continuously until stopped or bankroll can't cover), speed selector, New shoe, Buy-in.
+* Across a table change: REBET is offered only while the last bets are dealable at the current table (`validateLayout`
+  on `lastBets`; after a move to a table with higher minimums the button is disabled with the reason and `R` places
+  nothing — the engine's `rebet()` refuses them too, and they come back when the limits do). Moving tables puts the
+  table's base chip in hand (`defaultChip`: $25 when it covers the main minimum, otherwise the smallest chip that
+  does); a chip-tray-only edit keeps the chip in hand. A chip refused for lack of bankroll while the bankroll is below
+  the main minimum adds a "Buy-in to keep playing" hint to the notice.
 * Hand history list (newest first): hand #, P cards/total, B cards/total, outcome, bonuses, your net.
 * Coach panel: each bet on the layout with house edge % and expected loss in $; Dragon 7 and Panda 8 running &
   true count with a recommendation ("True count 4.6 ≥ 4 — Dragon 7 is +EV now"); current streak; session stats
@@ -491,6 +543,9 @@ results: summary stats cards, an SVG histogram of final bankrolls, an SVG line c
 (with the starting bankroll line), side-bet stats, realized edge vs. exact edge, and a "saved runs" comparison
 table (localStorage) for up to 6 runs. Presets: "Flat Banker", "Martingale on Player", "Count Dragon 7",
 "Paroli on streaks", "1-3-2-6 Banker".
+Money defaults follow the table (`labMoneyDefaults`): the unit is the resolved table's main minimum ($10 at the $10
+table, $500 in the salon) and the bankroll is the Settings buy-in (which follows the table level), until the user
+types their own values; the "unit / bankroll fit the limits" warnings stay.
 
 ## 6. Quality bar
 

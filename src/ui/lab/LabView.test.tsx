@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { RULE_PRESETS } from '@/engine';
+import { RULE_PRESETS, applyTableLevel } from '@/engine';
 import { runSimulation, validateSimConfig } from '@/strategy';
 import { buyInStore, rulesStore } from '@/ui/shell';
 import { LabView } from './LabView';
@@ -86,6 +86,34 @@ describe('LabView — form', () => {
     render(<LabView initialConfig={{ ...SMALL, trials: 0 }} />);
     expect(screen.getByTestId('lab-errors')).toHaveTextContent('Trials must be a positive whole number');
     expect(screen.getByTestId('lab-run')).toBeDisabled();
+  });
+
+  it('money defaults follow the table level and the buy-in until the user types their own', () => {
+    rulesStore.set(applyTableLevel(RULE_PRESETS.ez.rules, 'high'));
+    buyInStore.set(50000);
+    render(<LabView initialConfig={{ seed: 3 }} />);
+    expect(field('Unit').value).toBe('500');
+    expect(field('Bankroll').value).toBe('50,000');
+    expect(screen.getByText(/Base bet · table \$500–\$100,000/)).toBeInTheDocument();
+    expect(screen.queryByTestId('lab-warnings')).toBeNull();
+    // A preset table has the $10 limits: the unit follows it; the bankroll stays the buy-in.
+    fireEvent.change(select('Table rules'), { target: { value: 'commission' } });
+    expect(field('Unit').value).toBe('10');
+    expect(field('Bankroll').value).toBe('50,000');
+    // A table switch in Settings changes the buy-in, which the Lab follows …
+    act(() => buyInStore.set(2500));
+    expect(field('Bankroll').value).toBe('2,500');
+    // … until the user types a value, which then sticks whatever the table does.
+    fireEvent.change(field('Unit'), { target: { value: '40' } });
+    fireEvent.change(select('Table rules'), { target: { value: 'current' } });
+    expect(field('Unit').value).toBe('40');
+    expect(field('Bankroll').value).toBe('2,500');
+    act(() => buyInStore.set(10000));
+    expect(field('Bankroll').value).toBe('10,000');
+    fireEvent.change(field('Bankroll'), { target: { value: '777' } });
+    act(() => buyInStore.set(500));
+    expect(field('Bankroll').value).toBe('777');
+    expect(field('Unit').value).toBe('40');
   });
 
   it('randomizes the seed', () => {

@@ -11,7 +11,7 @@
   border-radius: 50%;
   color: var(--chip-ink, #fff);
   background:
-    radial-gradient(circle at 50% 50%, var(--chip-base) 0 59%, rgba(0, 0, 0, 0.22) 59.5% 61.5%, transparent 62%),
+    radial-gradient(circle at 50% 50%, var(--chip-sheen, var(--chip-base)) 0 16%, var(--chip-base) 46% 59%, rgba(0, 0, 0, 0.22) 59.5% 61.5%, transparent 62%),
     repeating-conic-gradient(from -11.25deg, var(--chip-edge) 0deg 22.5deg, var(--chip-base) 22.5deg 45deg);
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.42),
@@ -31,6 +31,11 @@
   border: calc(var(--s) * 0.035) dashed var(--chip-edge);
   opacity: 0.85;
 }
+/* The $100,000 plaque: a light gold face with a solid dark-gold rim and a solid inner ring. */
+.chip[data-solid-edge] {
+  background: radial-gradient(circle at 50% 50%, var(--chip-sheen) 0 16%, var(--chip-base) 46% 59%, rgba(0, 0, 0, 0.3) 59.5% 61.5%, var(--chip-edge) 62%);
+}
+.chip[data-solid-edge]::before { border-style: solid; opacity: 0.7; }
 .chip::after {
   content: '';
   position: absolute;
@@ -49,8 +54,8 @@
   letter-spacing: -0.02em;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
 }
-.value[data-len='3'] { font-size: calc(var(--s) * 0.27); }
-.value[data-len='4'] { font-size: calc(var(--s) * 0.215); letter-spacing: -0.03em; }
+.value[data-len='3'] { font-size: calc(var(--s) * 0.28); letter-spacing: -0.03em; }
+.value[data-len='4'] { font-size: calc(var(--s) * 0.235); letter-spacing: -0.04em; }
 .value[data-len='5'] { font-size: calc(var(--s) * 0.19); letter-spacing: -0.03em; }
 
 .interactive { cursor: pointer; }

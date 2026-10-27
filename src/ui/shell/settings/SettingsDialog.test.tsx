@@ -2,8 +2,8 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { DEFAULT_RULES, RULE_PRESETS } from '@/engine';
-import { SettingsDialog, describeRuleProblems, ruleSummary } from './SettingsDialog';
+import { DEFAULT_RULES, RULE_PRESETS, applyTableLevel, tableLevelOf } from '@/engine';
+import { SettingsDialog, describeRuleProblems, ruleSummary, tableChanged } from './SettingsDialog';
 import { buyInStore, prefsStore, rulesStore } from '../hooks/useSettings';
 import { getSession, resetSession } from '../hooks/useSession';
 
@@ -146,5 +146,137 @@ describe('SettingsDialog', () => {
     expect(closed()).toBe(1);
     fireEvent.click(screen.getByRole('button', { name: /close dialog/i }));
     expect(closed()).toBe(2);
+  });
+});
+
+describe('tableChanged', () => {
+  it('is true when the limits differ or a different tier is picked, and false for chip-tray-only edits', () => {
+    const high = applyTableLevel(DEFAULT_RULES, 'high');
+    expect(tableChanged(high, DEFAULT_RULES)).toBe(true);
+    expect(tableChanged(DEFAULT_RULES, DEFAULT_RULES)).toBe(false);
+    expect(tableChanged({ ...DEFAULT_RULES, limits: { ...DEFAULT_RULES.limits, main: { min: 10, max: 6000 } } }, DEFAULT_RULES)).toBe(true);
+    const moreChips = { ...DEFAULT_RULES, chipDenominations: [...DEFAULT_RULES.chipDenominations, 5000] };
+    expect(tableChanged(moreChips, DEFAULT_RULES)).toBe(false); // custom tray, same limits: the player stays at the table
+    expect(tableChanged(DEFAULT_RULES, moreChips)).toBe(true); // picking the named tier again is a table switch
+  });
+});
+
+describe('SettingsDialog — table levels', () => {
+  it('lists the five tiers with the $10 mini-baccarat active; picking the salon patches limits and chips, keeps the variant and warns about the buy-in', () => {
+    openDialog();
+    expect(screen.getByRole('radiogroup', { name: 'Table level' })).toBeInTheDocument();
+    expect(screen.getByTestId('level-mini')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('level-high')).toHaveTextContent('$500 high-limit salon');
+    expect(screen.getByTestId('level-high')).toHaveTextContent('main $500–$100,000 · tie $500–$10,000 · side $100–$5,000');
+    expect(screen.getByTestId('level-high')).toHaveTextContent('Buy-in $50,000');
+    expect(screen.getByTestId('level-blurb')).toHaveTextContent(/most common table on and off the Strip/);
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription(/\$10 mini-baccarat/);
+
+    fireEvent.click(screen.getByTestId('level-high'));
+    expect(screen.getByTestId('level-high')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('level-mini')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByTestId('level-blurb')).toHaveTextContent(/Salon play with limits raised for rated players\. Suggested buy-in \$50,000/);
+    expect((screen.getByLabelText('Player / Banker minimum') as HTMLInputElement).value).toBe('500');
+    expect((screen.getByLabelText('Player / Banker maximum') as HTMLInputElement).value).toBe('100,000');
+    expect((screen.getByLabelText('Tie maximum') as HTMLInputElement).value).toBe('10,000');
+    expect((screen.getByLabelText('Side bets minimum') as HTMLInputElement).value).toBe('100');
+    expect(screen.getByRole('button', { name: /\$100,000 chip in tray/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /\$25,000 chip in tray/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /\$1 chip not in tray/i })).toBeInTheDocument();
+    expect(screen.getByTestId('preset-ez')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByTestId('rule-problems')).not.toBeInTheDocument();
+    expect(screen.getByTestId('new-shoe-warning')).toHaveTextContent(/moves you to the \$500 high-limit salon table: your bankroll is reset to its suggested buy-in of \$50,000\. Session stats are kept/);
+  });
+
+  it('applies a level: rules and chips persist, the bankroll becomes the buy-in and the session stats carry on', () => {
+    const session = getSession();
+    session.placeBet('banker', 25);
+    session.deal();
+    const before = session.getState();
+    expect(before.stats.handsPlayed).toBe(1);
+    const { closed } = openDialog();
+    fireEvent.click(screen.getByTestId('level-high'));
+    fireEvent.click(screen.getByTestId('apply-rules'));
+    expect(closed()).toBe(1);
+    expect(tableLevelOf(rulesStore.get())).toBe('high');
+    expect(rulesStore.get().chipDenominations).toEqual([100, 500, 1000, 5000, 25000, 100000]);
+    const after = getSession().getState();
+    expect(after.rules.limits.main).toEqual({ min: 500, max: 100000 });
+    expect(after.bankroll).toBe(50000);
+    expect(after.stats.handsPlayed).toBe(1);
+    expect(after.stats.net).toBe(before.stats.net);
+    expect(after.stats.startingBankroll).toBeCloseTo(50000 - before.stats.net, 6);
+    expect(after.shoe.shoeNumber).toBe(before.shoe.shoeNumber + 1);
+    expect(buyInStore.get()).toBe(50000);
+    expect(JSON.parse(window.localStorage.getItem('bt:rules') ?? '{}').limits.main.min).toBe(500);
+    expect(window.localStorage.getItem('bt:bankroll')).toBe('50000');
+  });
+
+  it('chip-tray-only edits keep the bankroll; editing a limit makes the level custom and buys in for 100 × the minimum', () => {
+    openDialog();
+    fireEvent.click(screen.getByRole('button', { name: /\$5,000 chip not in tray/i }));
+    expect(screen.getByTestId('level-mini')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByTestId('level-blurb')).toHaveTextContent(/Custom limits — edited below; the suggested buy-in is \$1,000/);
+    expect(screen.getByTestId('new-shoe-warning')).toHaveTextContent(/Your bankroll and session stats are kept/);
+    fireEvent.click(screen.getByTestId('apply-rules'));
+    expect(getSession().getState().bankroll).toBe(1000);
+    expect(buyInStore.get()).toBe(1000);
+    expect(tableLevelOf(rulesStore.get())).toBe('custom');
+    cleanup();
+
+    openDialog();
+    const minInput = screen.getByLabelText('Player / Banker minimum');
+    fireEvent.focus(minInput);
+    fireEvent.change(minInput, { target: { value: '50' } });
+    expect(screen.getByTestId('level-blurb')).toHaveTextContent(/suggested buy-in is \$5,000/);
+    expect(screen.getByTestId('new-shoe-warning')).toHaveTextContent(/moves you to a table with custom limits: your bankroll is reset to its suggested buy-in of \$5,000/);
+    fireEvent.click(screen.getByTestId('apply-rules'));
+    expect(rulesStore.get().limits.main.min).toBe(50);
+    expect(getSession().getState().bankroll).toBe(5000);
+    expect(buyInStore.get()).toBe(5000);
+  });
+
+  it('a variant preset keeps the table level and leaves the bankroll alone', () => {
+    rulesStore.set(applyTableLevel(DEFAULT_RULES, 'high'));
+    getSession().setBankroll(48000);
+    buyInStore.set(50000);
+    openDialog();
+    expect(screen.getByTestId('level-high')).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByTestId('preset-commission'));
+    expect(screen.getByTestId('preset-commission')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('level-high')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('new-shoe-warning')).toHaveTextContent(/Your bankroll and session stats are kept/);
+    fireEvent.click(screen.getByTestId('apply-rules'));
+    expect(rulesStore.get().bankerRule).toBe('commission');
+    expect(tableLevelOf(rulesStore.get())).toBe('high');
+    expect(getSession().getState().bankroll).toBe(48000);
+    expect(buyInStore.get()).toBe(50000);
+  });
+
+  it('the Bankroll tab offers the table’s suggested buy-in among the quick amounts', () => {
+    rulesStore.set(applyTableLevel(DEFAULT_RULES, 'high'));
+    openDialog('bankroll');
+    const quick = (): HTMLElement => screen.getByRole('group', { name: 'Quick buy-in amounts' });
+    expect(within(quick()).getAllByRole('button').map((b) => b.textContent)).toEqual(['$500', '$1,000', '$2,500', '$5,000', '$10,000', '$50,000']);
+    fireEvent.click(within(quick()).getByRole('button', { name: '$50,000' }));
+    fireEvent.click(screen.getByTestId('set-bankroll'));
+    expect(getSession().getState().bankroll).toBe(50000);
+    expect(buyInStore.get()).toBe(50000);
+    cleanup();
+    rulesStore.set(DEFAULT_RULES);
+    openDialog('bankroll');
+    expect(within(quick()).getAllByRole('button').map((b) => b.textContent)).toEqual(['$500', '$1,000', '$2,500', '$5,000', '$10,000']);
+  });
+
+  it('"Reset to defaults" returns to the $10 table and, on Apply, to its buy-in', () => {
+    rulesStore.set(applyTableLevel(DEFAULT_RULES, 'private'));
+    getSession().setBankroll(500000);
+    openDialog();
+    fireEvent.click(screen.getByRole('button', { name: /reset to defaults/i }));
+    expect(screen.getByTestId('level-mini')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('new-shoe-warning')).toHaveTextContent(/\$10 mini-baccarat table: your bankroll is reset to its suggested buy-in of \$1,000/);
+    fireEvent.click(screen.getByTestId('apply-rules'));
+    expect(rulesStore.get()).toEqual(DEFAULT_RULES);
+    expect(getSession().getState().bankroll).toBe(1000);
   });
 });

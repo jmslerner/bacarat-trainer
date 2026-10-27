@@ -26,8 +26,13 @@ export {
   SETTINGS_KEYS,
   RULE_PRESET_IDS,
   STANDARD_CHIP_DENOMINATIONS,
+  VARIANT_KEYS,
+  ruleVariant,
+  variantEqual,
+  applyRulePreset,
+  tableLevelLabel,
 } from './useSettings';
-export type { Prefs, DealSpeed, SettingsApi, RulePresetId } from './useSettings';
+export type { Prefs, DealSpeed, SettingsApi, RulePresetId, RuleVariant } from './useSettings';
 export { useSession, useSessionState, getSession, resetSession } from './useSession';
 export type { SessionHandle, SessionInit } from './useSession';
 export { useSound, playSound, SOUND_NAMES } from './useSound';

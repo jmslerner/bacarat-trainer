@@ -4,6 +4,16 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import '@testing-library/jest-dom/vitest';
 import { LearnView } from './LearnView';
 import { LESSONS } from './lessons/registry';
+// Every lesson module is loaded up front, so the routing test below measures routing and not the transform
+// time of eight code-split chunks under a loaded parallel run (React.lazy then resolves from the module cache).
+import './lessons/basics';
+import './lessons/third-card';
+import './lessons/bets-and-odds';
+import './lessons/dragon-panda';
+import './lessons/roads';
+import './lessons/money';
+import './lessons/counting';
+import './lessons/casino-procedure';
 
 function setHash(hash: string): void {
   act(() => {
@@ -40,7 +50,7 @@ describe('LearnView', () => {
     render(<LearnView />);
     for (const l of LESSONS) {
       setHash(`#learn/${l.id}`);
-      const heading = await screen.findByRole('heading', { level: 1, name: l.title }, { timeout: 15000 });
+      const heading = await screen.findByRole('heading', { level: 1, name: l.title }, { timeout: 30000 });
       expect(heading).toBeInTheDocument();
       expect(document.querySelector(`[data-lesson="${l.id}"]`)).toBeInTheDocument();
       const nav = screen.getByRole('navigation', { name: /lessons/i });
@@ -49,7 +59,7 @@ describe('LearnView', () => {
       expect(nav.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
       expect(document.title).toContain(l.title);
     }
-  }, 60000);
+  }, 120000);
 
   it('shows a not-found notice for an unknown lesson id', () => {
     render(<LearnView />);

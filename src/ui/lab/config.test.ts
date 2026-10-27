@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RULES, RULE_PRESETS } from '@/engine';
+import { DEFAULT_RULES, RULE_PRESETS, TABLE_LEVELS, TABLE_LEVEL_IDS, applyTableLevel } from '@/engine';
 import { validateSimConfig } from '@/strategy';
 import {
   LAB_LIMITS,
@@ -8,6 +8,7 @@ import {
   defaultLabConfig,
   estimateHands,
   handsPerShoe,
+  labMoneyDefaults,
   matchLabPreset,
   normalizeSystemParams,
   resolveRules,
@@ -49,6 +50,30 @@ describe('defaults and presets', () => {
     expect(martingale).toMatchObject({ selectorId: 'alwaysPlayer', systemId: 'martingale', systemParams: { maxDoublings: 8 } });
     const count = applyLabPreset(base, LAB_PRESETS[2]);
     expect(count).toMatchObject({ selectorId: 'alwaysBanker', systemId: 'flat', dragon7: 'count', panda8: 'never', sideUnits: 5 });
+  });
+
+  it('labMoneyDefaults: the unit is the table minimum and the bankroll the buy-in (or the suggested one); every preset stays sensible at every level', () => {
+    expect(labMoneyDefaults(DEFAULT_RULES)).toEqual({ unit: 10, bankroll: 1000 });
+    expect(labMoneyDefaults(DEFAULT_RULES, 2500)).toEqual({ unit: 10, bankroll: 2500 });
+    expect(labMoneyDefaults(DEFAULT_RULES, 0)).toEqual({ unit: 10, bankroll: 1000 });
+    expect(labMoneyDefaults({ ...DEFAULT_RULES, limits: { ...DEFAULT_RULES.limits, main: { min: 50, max: 5000 } } })).toEqual({ unit: 50, bankroll: 5000 });
+    expect(labMoneyDefaults({ ...DEFAULT_RULES, limits: { ...DEFAULT_RULES.limits, main: { min: 0, max: 5000 } } }).unit).toBe(10);
+    expect(defaultLabConfig({ unit: 500, bankroll: 50000, seed: 1 })).toMatchObject({ unit: 500, bankroll: 50000 });
+    expect(defaultLabConfig({ unit: -5 }).unit).toBe(10);
+    for (const id of TABLE_LEVEL_IDS) {
+      const rules = applyTableLevel(DEFAULT_RULES, id);
+      const money = labMoneyDefaults(rules);
+      expect(money).toEqual({ unit: TABLE_LEVELS[id].limits.main.min, bankroll: TABLE_LEVELS[id].buyIn });
+      const form = defaultLabConfig({ ...money, seed: 1 });
+      const v = validateLabConfig(form, rules);
+      expect(v.errors).toEqual([]);
+      expect(v.warnings).toEqual([]);
+      for (const preset of LAB_PRESETS) {
+        const pv = validateLabConfig(applyLabPreset(form, preset), rules);
+        expect(pv.errors, `${preset.id} at ${id}`).toEqual([]);
+        expect(pv.warnings.filter((w) => /below the table minimum|cannot cover|raised to/.test(w)), `${preset.id} at ${id}`).toEqual([]);
+      }
+    }
   });
 
   it('matchLabPreset ignores money and run size but sees any strategy edit', () => {

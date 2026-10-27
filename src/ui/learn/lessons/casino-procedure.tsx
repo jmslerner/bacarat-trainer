@@ -1,10 +1,10 @@
 /**
- * Lesson 8 — Casino Procedure and Etiquette: shoe, cut card, burn, dealing, commission, limits, the squeeze,
- * etiquette, and the three Banker rules side by side.
+ * Lesson 8 — Casino Procedure and Etiquette: shoe, cut card, burn, dealing, commission, limits, the Las Vegas
+ * table levels, the squeeze, etiquette, and the three Banker rules side by side.
  */
 import type { ReactNode } from 'react';
-import { exactProbabilities, MSG_CUT_CARD } from '@/engine';
-import { formatMoney, formatPercent, useSettings } from '@/ui/shell';
+import { exactProbabilities, MSG_CUT_CARD, TABLE_LEVEL_IDS, TABLE_LEVELS, tableLevelOf } from '@/engine';
+import { cx, formatLimitRange, formatMoney, formatPercent, tableLevelLabel, useSettings } from '@/ui/shell';
 import { Callout, Facts, LessonLink, LessonPage, Prose, Section, Table, tableClass } from './components';
 import { VariantComparison } from './widgets/VariantComparison';
 
@@ -15,6 +15,7 @@ const SECTIONS = [
   { id: 'dealing', title: 'Dealing and the dealer’s calls' },
   { id: 'commission', title: 'Commission' },
   { id: 'limits', title: 'Limits and placing bets' },
+  { id: 'levels', title: 'Table levels in Las Vegas' },
   { id: 'squeeze', title: 'The squeeze' },
   { id: 'etiquette', title: 'Etiquette' },
   { id: 'variants', title: 'EZ, classic and Super 6' },
@@ -37,6 +38,7 @@ export function CasinoProcedureLesson(): ReactNode {
   const { rules } = useSettings();
   const p = exactProbabilities(rules.decks);
   const total = rules.decks * 52;
+  const level = tableLevelOf(rules);
   return (
     <LessonPage
       id="casino-procedure"
@@ -156,6 +158,7 @@ export function CasinoProcedureLesson(): ReactNode {
       <Section id="limits" number={6} title="Limits and placing bets">
         <Facts
           items={[
+            { label: 'Your table', value: tableLevelLabel(rules), tone: 'gold' },
             { label: 'Player / Banker', value: `${formatMoney(rules.limits.main.min)} – ${formatMoney(rules.limits.main.max)}` },
             { label: 'Tie', value: `${formatMoney(rules.limits.tie.min)} – ${formatMoney(rules.limits.tie.max)}` },
             { label: 'Side bets', value: `${formatMoney(rules.limits.side.min)} – ${formatMoney(rules.limits.side.max)}` },
@@ -175,7 +178,54 @@ export function CasinoProcedureLesson(): ReactNode {
         </Prose>
       </Section>
 
-      <Section id="squeeze" number={7} title="The squeeze">
+      <Section id="levels" number={7} title="Table levels in Las Vegas">
+        <Prose>
+          <p>
+            Baccarat is dealt at every stake in Las Vegas, and the limits are set per table and per property. Mini-baccarat tables open at $10–$25
+            (the $25 tables are the Strip’s evening and weekend game), the main baccarat pit at $100–$300, and the high-limit salons at $500–$1,000.
+            Posted maximums on the Strip top out around $25,000 a hand; the salons post $10,000–$20,000 and grant $100,000–$250,000 to rated
+            players, and $500,000 is reported but rare. Side bets are capped far lower everywhere because of their 40:1 and 25:1 payouts.
+          </p>
+        </Prose>
+        <Table compact caption="The five table levels in the simulator">
+          <thead>
+            <tr>
+              <th scope="col">Table</th>
+              <th scope="col">Player / Banker</th>
+              <th scope="col">Tie</th>
+              <th scope="col">Dragon 7, Panda 8, pairs</th>
+              <th scope="col">Where you find it</th>
+            </tr>
+          </thead>
+          <tbody>
+            {TABLE_LEVEL_IDS.map((id) => {
+              const lv = TABLE_LEVELS[id];
+              const active = level === id;
+              return (
+                <tr key={id} data-level={id} data-active={active || undefined}>
+                  <td className={tableClass.strong}>
+                    {lv.name}
+                    {active && <span className={tableClass.muted}> · your table</span>}
+                  </td>
+                  <td className={cx(tableClass.num, active && tableClass.strong)}>{formatLimitRange(lv.limits.main)}</td>
+                  <td className={cx(tableClass.num, active && tableClass.strong)}>{formatLimitRange(lv.limits.tie)}</td>
+                  <td className={cx(tableClass.num, active && tableClass.strong)}>{formatLimitRange(lv.limits.side)}</td>
+                  <td>{lv.blurb}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+        <Prose>
+          <p>
+            Pick a table under Settings → Rules → Table level: the plaque on the rail, the chip tray and your bankroll (reset to the table’s
+            suggested buy-in of 100 × the minimum, with the session stats carried on) follow it, and so does every figure in these lessons. Limits
+            vary by property and change with the time of day and demand, so read the posted numbers as typical rather than fixed.
+          </p>
+        </Prose>
+      </Section>
+
+      <Section id="squeeze" number={8} title="The squeeze">
         <Prose>
           <p>
             At big tables the player with the largest bet on a side may <dfn>squeeze</dfn> the cards: bend them slowly, peeking at the pips, drawing out
@@ -190,7 +240,7 @@ export function CasinoProcedureLesson(): ReactNode {
         </Prose>
       </Section>
 
-      <Section id="etiquette" number={8} title="Etiquette">
+      <Section id="etiquette" number={9} title="Etiquette">
         <Prose>
           <ul>
             <li>
@@ -218,7 +268,7 @@ export function CasinoProcedureLesson(): ReactNode {
         </Prose>
       </Section>
 
-      <Section id="variants" number={9} title="EZ, classic and Super 6">
+      <Section id="variants" number={10} title="EZ, classic and Super 6">
         <Prose>
           <p>
             You will meet three ways of charging for the Banker’s advantage. They are all cheap bets, and the differences are small, but they change

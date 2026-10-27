@@ -4,7 +4,7 @@
  * bridge in useSession.ts) can read and subscribe to them too.
  */
 import { useCallback, useMemo } from 'react';
-import { DEFAULT_RULES, RULE_PRESETS, validateRules } from '@/engine';
+import { DEFAULT_RULES, RULE_PRESETS, TABLE_LEVELS, tableLevelOf, validateRules } from '@/engine';
 import type { BankerRule, BetLimits, TableRules } from '@/engine';
 import { createPersistedStore, useStore } from './storage';
 
@@ -46,8 +46,12 @@ export const SETTINGS_KEYS = {
 export type RulePresetId = keyof typeof RULE_PRESETS;
 export const RULE_PRESET_IDS: readonly RulePresetId[] = ['ez', 'commission', 'super6'];
 
-/** Standard US casino chip denominations offered by the rule editor. */
-export const STANDARD_CHIP_DENOMINATIONS: readonly number[] = [1, 5, 25, 100, 500, 1000, 5000];
+/** Standard US casino chip denominations offered by the rule editor ($25,000 and the $100,000 plaque for the salons). */
+export const STANDARD_CHIP_DENOMINATIONS: readonly number[] = [1, 5, 25, 100, 500, 1000, 5000, 25000, 100000];
+
+/** The rule fields that make a game variant; the table level (limits + chip tray) is the rest. */
+export const VARIANT_KEYS = ['decks', 'bankerRule', 'commissionRate', 'tiePays', 'dragon7Pays', 'panda8Pays', 'pairPays', 'sideBets', 'cutCardFromEnd', 'burnProcedure'] as const;
+export type RuleVariant = Pick<TableRules, (typeof VARIANT_KEYS)[number]>;
 
 /* ---- sanitizers: whatever is in storage becomes a valid shape --------------------------- */
 
@@ -143,12 +147,47 @@ export function rulesEqual(a: TableRules, b: TableRules): boolean {
   return deepEqual(a, b);
 }
 
-/** Which preset (if any) a rule set matches exactly. */
+/** Just the variant fields of a rule set (no limits, no chip tray). */
+export function ruleVariant(rules: TableRules): RuleVariant {
+  return {
+    decks: rules.decks,
+    bankerRule: rules.bankerRule,
+    commissionRate: rules.commissionRate,
+    tiePays: rules.tiePays,
+    dragon7Pays: rules.dragon7Pays,
+    panda8Pays: rules.panda8Pays,
+    pairPays: rules.pairPays,
+    sideBets: { ...rules.sideBets },
+    cutCardFromEnd: rules.cutCardFromEnd,
+    burnProcedure: rules.burnProcedure,
+  };
+}
+
+/** Same game variant (Banker rule, payouts, side bets, shoe), whatever the table level. */
+export function variantEqual(a: TableRules, b: TableRules): boolean {
+  return deepEqual(ruleVariant(a), ruleVariant(b));
+}
+
+/**
+ * Which preset (if any) the rule set's VARIANT matches. The presets are variant-only, so the table level
+ * (limits and chip tray) never makes a rule set "custom" here — `tableLevelOf` answers that question.
+ */
 export function matchPreset(rules: TableRules): RulePresetId | null {
   for (const id of RULE_PRESET_IDS) {
-    if (rulesEqual(rules, RULE_PRESETS[id].rules)) return id;
+    if (variantEqual(rules, RULE_PRESETS[id].rules)) return id;
   }
   return null;
+}
+
+/** The preset's variant over the given rules' table level: limits and chip tray are kept. */
+export function applyRulePreset(rules: TableRules, id: RulePresetId): TableRules {
+  return sanitizeRules({ ...RULE_PRESETS[id].rules, limits: rules.limits, chipDenominations: rules.chipDenominations });
+}
+
+/** "$500 high-limit salon", or "Custom limits" when the rules match no table level. */
+export function tableLevelLabel(rules: TableRules): string {
+  const id = tableLevelOf(rules);
+  return id === 'custom' ? 'Custom limits' : TABLE_LEVELS[id].name;
 }
 
 /* ---- hook -------------------------------------------------------------------------------- */
@@ -163,6 +202,7 @@ export interface SettingsApi {
    * Returns the engine's problems with the rules (nothing is persisted unless the list is empty).
    */
   setRules(rules: TableRules): string[];
+  /** Switch the game variant; the table level (limits and chip tray) is kept. */
   applyPreset(id: RulePresetId): void;
   resetRules(): void;
   setPrefs(patch: Partial<Prefs>): void;
@@ -183,7 +223,7 @@ export function useSettings(): SettingsApi {
     if (problems.length === 0) rulesStore.set(clean);
     return problems;
   }, []);
-  const applyPreset = useCallback((id: RulePresetId) => rulesStore.set(sanitizeRules(RULE_PRESETS[id].rules)), []);
+  const applyPreset = useCallback((id: RulePresetId) => rulesStore.set((r) => applyRulePreset(r, id)), []);
   const resetRules = useCallback(() => rulesStore.reset(), []);
   const setPrefs = useCallback((patch: Partial<Prefs>) => prefsStore.set((p) => sanitizePrefs({ ...p, ...patch })), []);
   const togglePref = useCallback((key: 'sound' | 'showCoach' | 'beginnerTips') => prefsStore.set((p) => ({ ...p, [key]: !p[key] })), []);

@@ -1,7 +1,8 @@
 /**
  * Chip / ChipStack — CSS casino chips with edge spots and an inner ring, coloured by
  * denomination (US conventions: $1 white, $5 red, $25 green, $100 black, $500 purple,
- * $1,000 orange "pumpkin", $5,000 brown).
+ * $1,000 orange "pumpkin", $5,000 brown, $25,000 grey, $100,000 a gold plaque).
+ * Faces read 1 · 5 · 25 · 100 · 500 · 1K · 5K · 25K · 100K so they fit at every size.
  */
 import { forwardRef, type ButtonHTMLAttributes, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
 import { cx } from '../cx';
@@ -16,6 +17,10 @@ export interface ChipColor {
   /** Text colour on the face. */
   ink: string;
   name: string;
+  /** Lighter centre of the face (a plaque's sheen); the face is flat when omitted. */
+  sheen?: string;
+  /** A solid rim instead of edge spots (the $100,000 plaque). */
+  solidEdge?: boolean;
 }
 
 export const CHIP_COLORS: Readonly<Record<string, ChipColor>> = {
@@ -31,7 +36,8 @@ export const CHIP_COLORS: Readonly<Record<string, ChipColor>> = {
   '500': { base: '#6a2c91', edge: '#efe3f8', ink: '#ffffff', name: 'purple' },
   '1000': { base: '#f6a21e', edge: '#1c1a17', ink: '#1c1a17', name: 'pumpkin' },
   '5000': { base: '#6b3f22', edge: '#e9c9a3', ink: '#ffffff', name: 'brown' },
-  '25000': { base: '#9aa0a6', edge: '#1c1a17', ink: '#1c1a17', name: 'gray' },
+  '25000': { base: '#b4bac2', edge: '#1c1a17', ink: '#1c1a17', name: 'gray' },
+  '100000': { base: '#e2bf55', sheen: '#f9ecb8', edge: '#7a5a12', ink: '#2b2104', name: 'gold', solidEdge: true },
 };
 
 const FALLBACK_COLOR: ChipColor = { base: '#8d8d8d', edge: '#f4f1ea', ink: '#ffffff', name: 'gray' };
@@ -41,9 +47,10 @@ export function chipColor(value: number): ChipColor {
   return CHIP_COLORS[String(value)] ?? FALLBACK_COLOR;
 }
 
-/** Face label: 1 → "1", 2.5 → "2.50", 1000 → "1000". */
+/** Face label: 1 → "1", 2.5 → "2.50", 1000 → "1K", 2500 → "2.5K", 100000 → "100K". */
 export function chipLabel(value: number): string {
   if (!Number.isFinite(value)) return '?';
+  if (value >= 1000 && Number.isInteger(value)) return `${Math.round((value / 1000) * 100) / 100}K`;
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
@@ -84,7 +91,7 @@ export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>,
 
 function chipVars(value: number, px: number): CSSProperties {
   const c = chipColor(value);
-  return { '--chip-size': `${px}px`, '--chip-base': c.base, '--chip-edge': c.edge, '--chip-ink': c.ink } as CSSProperties;
+  return { '--chip-size': `${px}px`, '--chip-base': c.base, '--chip-sheen': c.sheen ?? c.base, '--chip-edge': c.edge, '--chip-ink': c.ink } as CSSProperties;
 }
 
 export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
@@ -95,6 +102,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
   const text = chipLabel(value);
   const name = label ?? `${formatMoney(value)} chip`;
   const isButton = interactive ?? Boolean(onClick);
+  const solidEdge = chipColor(value).solidEdge ? '' : undefined;
   const cls = cx(styles.chip, selected && styles.selected, isButton && styles.interactive, disabled && styles.disabled, className);
   const face = (
     <span className={styles.value} data-len={text.length} aria-hidden="true">
@@ -115,6 +123,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
         onClick={onClick}
         disabled={disabled}
         data-value={value}
+        data-solid-edge={solidEdge}
         {...rest}
       >
         {face}
@@ -122,7 +131,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
     );
   }
   return (
-    <span className={cls} style={vars} role="img" aria-label={name} data-value={value} {...(rest as HTMLAttributes<HTMLSpanElement>)}>
+    <span className={cls} style={vars} role="img" aria-label={name} data-value={value} data-solid-edge={solidEdge} {...(rest as HTMLAttributes<HTMLSpanElement>)}>
       {face}
     </span>
   );

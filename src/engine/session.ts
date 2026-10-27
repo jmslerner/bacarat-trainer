@@ -256,10 +256,10 @@ export class GameSession {
     const { lastBets, rules, bankroll } = this.state;
     const active = BET_TYPES.filter((bet) => (lastBets[bet] ?? 0) > 0);
     if (active.length === 0) return { ok: false, reason: 'No previous bets to repeat' };
-    for (const bet of active) {
-      const problem = validateBet(bet, lastBets[bet] as number, rules);
-      if (problem !== null) return { ok: false, reason: problem };
-    }
+    // The whole layout must be dealable at THIS table (offered bets, maximums and minimums): after a move to a
+    // table with higher minimums, the old bets cannot be repeated.
+    const problems = validateLayout(lastBets, rules);
+    if (problems.length > 0) return { ok: false, reason: problems[0] };
     const total = totalOnLayout(lastBets);
     if (total > bankroll) {
       return { ok: false, reason: `Not enough bankroll to repeat ${formatMoney(total)} in bets` };

@@ -3,8 +3,9 @@
  * (DEAL / REBET / CLEAR / UNDO / AUTO / speed / New shoe / Buy-in) and the notice line for errors.
  */
 import type { ReactNode } from 'react';
+import { TABLE_LEVELS, tableLevelOf } from '@/engine';
 import type { TableRules } from '@/engine';
-import { Button, Chip, Plaque, Select, Tooltip, cx, formatMoney, DEAL_SPEEDS, type DealSpeed } from '@/ui/shell';
+import { Button, Chip, Plaque, Select, Tooltip, cx, formatLimitRange, formatMoney, tableLevelLabel, DEAL_SPEEDS, type DealSpeed } from '@/ui/shell';
 import type { Phase } from '../animation/types';
 import styles from './Rail.module.css';
 
@@ -30,6 +31,8 @@ export interface RailProps {
   speed: DealSpeed;
   onSpeed: (speed: DealSpeed) => void;
   rebetAmount: number;
+  /** Why the last bets cannot be repeated at this table (null when they can, or there are none). */
+  rebetProblem?: string | null;
   hasBets: boolean;
   onDeal: () => void;
   onRebet: () => void;
@@ -45,11 +48,15 @@ export interface RailProps {
 
 const SPEED_OPTIONS = DEAL_SPEEDS.map((s) => ({ value: s.id, label: s.label }));
 
-export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, dealReason, busy, phase, auto, onToggleAuto, speed, onSpeed, rebetAmount, hasBets, onDeal, onRebet, onClear, onUndo, onNewShoe, onBuyIn, onCoach, notice, phone }: RailProps): ReactNode {
+export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, dealReason, busy, phase, auto, onToggleAuto, speed, onSpeed, rebetAmount, rebetProblem = null, hasBets, onDeal, onRebet, onClear, onUndo, onNewShoe, onBuyIn, onCoach, notice, phone }: RailProps): ReactNode {
   const chips = rules.chipDenominations;
   const canDeal = dealReason === null && !busy;
   const dealLabel = busy ? (phase === 'shuffling' ? 'Skip' : 'Fast forward') : 'Deal';
-  const limitsSub = `Tie ${formatMoney(rules.limits.tie.min)}–${formatMoney(rules.limits.tie.max)} · Side ${formatMoney(rules.limits.side.min)}–${formatMoney(rules.limits.side.max)}`;
+  const limitsSub = `Tie ${formatLimitRange(rules.limits.tie)} · Side ${formatLimitRange(rules.limits.side)}`;
+  const levelId = tableLevelOf(rules);
+  const levelName = tableLevelLabel(rules);
+  const levelBlurb = levelId === 'custom' ? 'Limits edited under Settings.' : TABLE_LEVELS[levelId].blurb;
+  const limitsTitle = `${levelName} — ${levelBlurb} Player and Banker ${formatLimitRange(rules.limits.main)}, Tie ${formatLimitRange(rules.limits.tie)}, Dragon 7, Panda 8 and the pairs ${formatLimitRange(rules.limits.side)}. Change tables under Settings → Rules.`;
 
   return (
     <div className={cx(styles.rail, phone && styles.railPhone)} data-testid="rail">
@@ -77,7 +84,7 @@ export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, de
               {formatMoney(bankroll)}
             </span>
           </Plaque>
-          <Plaque size="sm" sub={limitsSub} className={styles.limitsPlaque}>
+          <Plaque size="sm" kicker={levelName} sub={limitsSub} className={styles.limitsPlaque} title={limitsTitle} data-testid="table-limits" data-level={levelId}>
             Min {formatMoney(rules.limits.main.min)} — Max {formatMoney(rules.limits.main.max)}
           </Plaque>
         </div>
@@ -96,7 +103,7 @@ export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, de
               </Button>
             </Tooltip>
           )}
-          <Button kbd="R" onClick={onRebet} disabled={busy || rebetAmount <= 0} data-testid="rebet-button" title={rebetAmount > 0 ? `Repeat the last bets (${formatMoney(rebetAmount)})` : 'No previous bets to repeat'}>
+          <Button kbd="R" onClick={onRebet} disabled={busy || rebetAmount <= 0} data-testid="rebet-button" title={rebetAmount > 0 ? `Repeat the last bets (${formatMoney(rebetAmount)})` : rebetProblem ? `The last bets cannot be repeated at this table: ${rebetProblem}` : 'No previous bets to repeat'}>
             Rebet{rebetAmount > 0 ? ` ${formatMoney(rebetAmount)}` : ''}
           </Button>
           <Button kbd="C" onClick={onClear} disabled={busy || !hasBets} data-testid="clear-button">

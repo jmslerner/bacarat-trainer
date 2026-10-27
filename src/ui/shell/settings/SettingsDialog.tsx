@@ -1,12 +1,13 @@
 /**
- * SettingsDialog — rule presets + the full rule editor, bankroll buy-in and preferences.
- * Rule edits are kept in a draft and only applied with "Apply" (which starts a new shoe).
+ * SettingsDialog — rule presets (the game variant), the table level (Las Vegas stakes tiers), the full rule
+ * editor, bankroll buy-in and preferences. Rule edits are kept in a draft and only applied with "Apply"
+ * (which starts a new shoe); moving to a different table also resets the bankroll to that table's buy-in.
  */
 import { useMemo, useState, type ReactNode } from 'react';
-import { MIN_CUT_CARD_FROM_END, RULE_PRESETS, validateRules } from '@/engine';
-import type { BankerRule, TableRules } from '@/engine';
+import { MIN_CUT_CARD_FROM_END, RULE_PRESETS, TABLE_LEVEL_IDS, TABLE_LEVELS, applyTableLevel, limitsEqual, suggestedBuyIn, tableLevelOf, validateRules } from '@/engine';
+import type { BankerRule, TableLevelId, TableRules } from '@/engine';
 import { cx } from '../cx';
-import { formatMoney, formatOdds } from '../format';
+import { formatLimits, formatMoney, formatOdds } from '../format';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Modal } from '../components/Modal';
@@ -16,7 +17,7 @@ import { Stat, toneForNet } from '../components/Stat';
 import { Tabs } from '../components/Tabs';
 import { Toggle } from '../components/Toggle';
 import { useSession } from '../hooks/useSession';
-import { DEAL_SPEEDS, matchPreset, rulesEqual, RULE_PRESET_IDS, sanitizeRules, STANDARD_CHIP_DENOMINATIONS, useSettings, type DealSpeed, type RulePresetId } from '../hooks/useSettings';
+import { DEAL_SPEEDS, applyRulePreset, matchPreset, rulesEqual, RULE_PRESET_IDS, sanitizeRules, STANDARD_CHIP_DENOMINATIONS, tableLevelLabel, useSettings, type DealSpeed, type RulePresetId } from '../hooks/useSettings';
 import { playSound } from '../hooks/useSound';
 import styles from './SettingsDialog.module.css';
 
@@ -76,6 +77,16 @@ export function cutCardRange(decks: 6 | 8): { min: number; max: number } {
   return { min: MIN_CUT_CARD_FROM_END, max: decks * 52 - 52 };
 }
 
+/**
+ * Whether applying `draft` over `current` moves the player to a different table — which resets the bankroll to the
+ * table's suggested buy-in: the limits changed, or a different table level was picked. Chip-tray-only edits do not.
+ */
+export function tableChanged(draft: TableRules, current: TableRules): boolean {
+  if (!limitsEqual(draft.limits, current.limits)) return true;
+  const level = tableLevelOf(draft);
+  return level !== 'custom' && level !== tableLevelOf(current);
+}
+
 export function ruleSummary(r: TableRules): string {
   const banker = r.bankerRule === 'ez' ? 'EZ Baccarat' : r.bankerRule === 'commission' ? `Classic ${Math.round(r.commissionRate * 100)}% commission` : 'Super 6';
   const sides: string[] = [];
@@ -104,8 +115,13 @@ function SettingsDialogOpen({ onClose, initialTab }: { onClose: () => void; init
   const dirty = !rulesEqual(draft, settings.rules);
   const problems = useMemo(() => describeRuleProblems(draft), [draft]);
   const preset = matchPreset(draft);
+  const level = tableLevelOf(draft);
+  const movesTable = dirty && tableChanged(draft, settings.rules);
+  const nextBuyIn = suggestedBuyIn(draft);
   const handsInShoe = state.shoeHistory.length;
   const betsOnLayout = Object.values(state.bets).some((v) => (v ?? 0) > 0);
+  /** Quick buy-in amounts: the usual ones plus the table's suggested buy-in (100 × its minimum). */
+  const quickBuyIns = useMemo(() => Array.from(new Set([...QUICK_BUY_INS, suggestedBuyIn(settings.rules)])).sort((a, b) => a - b), [settings.rules]);
 
   const patch = (p: Partial<TableRules>): void => setDraft((d) => ({ ...d, ...p }));
   const patchLimits = (which: 'main' | 'tie' | 'side', key: 'min' | 'max', value: number): void =>
@@ -119,7 +135,13 @@ function SettingsDialogOpen({ onClose, initialTab }: { onClose: () => void; init
 
   const apply = (): void => {
     if (!dirty || problems.length > 0) return;
-    settings.setRules(sanitizeRules(draft));
+    const rejected = settings.setRules(sanitizeRules(draft));
+    if (rejected.length > 0) return;
+    if (movesTable) {
+      // A new table: buy in for its suggested amount. The session keeps its stats (the difference counts as a buy-in).
+      session.setBankroll(nextBuyIn);
+      settings.setBuyIn(nextBuyIn);
+    }
     playSound('shuffle');
     onClose();
   };
@@ -162,7 +184,7 @@ function SettingsDialogOpen({ onClose, initialTab }: { onClose: () => void; init
     );
 
   return (
-    <Modal open onClose={onClose} title="Table Settings" description={ruleSummary(settings.rules)} size="lg" footer={footer} className={styles.dialog}>
+    <Modal open onClose={onClose} title="Table Settings" description={`${ruleSummary(settings.rules)} · ${tableLevelLabel(settings.rules)}`} size="lg" footer={footer} className={styles.dialog}>
       <Tabs items={TABS} value={tab} onChange={setTab} label="Settings sections" variant="pill" fill size="sm" panelClassName={styles.panel}>
         {tab === 'rules' && (
           <div className={styles.rules}>
@@ -181,7 +203,7 @@ function SettingsDialogOpen({ onClose, initialTab }: { onClose: () => void; init
                       role="radio"
                       aria-checked={active}
                       className={cx(styles.preset, active && styles.presetActive)}
-                      onClick={() => setDraft(sanitizeRules(p.rules))}
+                      onClick={() => setDraft((d) => applyRulePreset(d, id))}
                       data-testid={`preset-${id}`}
                     >
                       <span className={styles.presetName}>{p.name}</span>
@@ -191,6 +213,38 @@ function SettingsDialogOpen({ onClose, initialTab }: { onClose: () => void; init
                 })}
               </div>
               {preset === null && <p className={styles.custom}>Custom rules — edited from a preset.</p>}
+            </section>
+
+            <section className={styles.section} aria-labelledby="level-heading">
+              <h4 id="level-heading" className={styles.heading}>
+                Table level
+              </h4>
+              <div className={styles.levels} role="radiogroup" aria-label="Table level">
+                {TABLE_LEVEL_IDS.map((id: TableLevelId) => {
+                  const lv = TABLE_LEVELS[id];
+                  const active = level === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      className={cx(styles.level, active && styles.levelActive)}
+                      onClick={() => setDraft((d) => applyTableLevel(d, id))}
+                      data-testid={`level-${id}`}
+                    >
+                      <span className={styles.levelName}>{lv.name}</span>
+                      <span className={styles.levelBuyIn}>Buy-in {formatMoney(lv.buyIn)}</span>
+                      <span className={styles.levelLimits}>{formatLimits(lv.limits)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className={cx(styles.custom, styles.levelBlurb)} data-testid="level-blurb">
+                {level === 'custom'
+                  ? `Custom limits — edited below; the suggested buy-in is ${formatMoney(nextBuyIn)} (100 × the main minimum).`
+                  : `${TABLE_LEVELS[level].blurb} Suggested buy-in ${formatMoney(TABLE_LEVELS[level].buyIn)}. The limits and the chip tray below follow the table you pick.`}
+              </p>
             </section>
 
             <div className={styles.grid}>
@@ -284,7 +338,15 @@ function SettingsDialogOpen({ onClose, initialTab }: { onClose: () => void; init
               <p className={styles.warning} role="status" data-testid="new-shoe-warning">
                 Applying these rules starts a <strong>new shoe</strong>
                 {handsInShoe > 0 ? ` — the current shoe (${handsInShoe} ${handsInShoe === 1 ? 'hand' : 'hands'}) is discarded` : ''}
-                {betsOnLayout ? ' and bets on the layout are cleared' : ''}. Your bankroll and session stats are kept.
+                {betsOnLayout ? ' and bets on the layout are cleared' : ''}.{' '}
+                {movesTable ? (
+                  <>
+                    It also moves you to {level === 'custom' ? 'a table with custom limits' : <>the <strong>{TABLE_LEVELS[level].name}</strong> table</>}: your bankroll is reset to its suggested buy-in of{' '}
+                    <strong>{formatMoney(nextBuyIn)}</strong>. Session stats are kept.
+                  </>
+                ) : (
+                  'Your bankroll and session stats are kept.'
+                )}
               </p>
             )}
           </div>
@@ -299,7 +361,7 @@ function SettingsDialogOpen({ onClose, initialTab }: { onClose: () => void; init
             </div>
             <NumberInput label="Buy-in amount" value={buyIn} min={0} step={100} decimals={2} prefix="$" onChange={setBuyInDraft} hint="Sets your bankroll to this amount. History and stats are kept." />
             <div className={styles.quick} role="group" aria-label="Quick buy-in amounts">
-              {QUICK_BUY_INS.map((v) => (
+              {quickBuyIns.map((v) => (
                 <Button key={v} size="sm" variant={buyIn === v ? 'primary' : 'secondary'} onClick={() => setBuyInDraft(v)}>
                   {formatMoney(v)}
                 </Button>

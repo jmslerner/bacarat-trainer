@@ -2,9 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { DEFAULT_RULES, RULE_PRESETS, cloneRules } from '@/engine';
+import { DEFAULT_RULES, RULE_PRESETS, applyTableLevel, cloneRules } from '@/engine';
 import { rulesStore } from '@/ui/shell';
 import { BetsAndOddsLesson } from './bets-and-odds';
+import { CasinoProcedureLesson } from './casino-procedure';
 import { DragonPandaLesson } from './dragon-panda';
 import { RoadsLesson } from './roads';
 
@@ -47,6 +48,24 @@ describe('lesson prose follows the active table rules', () => {
     expect(screen.getByRole('heading', { level: 2, name: /the side bets: 41 to 1 and 25 to 1/i })).toBeInTheDocument();
     expect(body()).toMatch(/4% commission costs/);
     expect(body()).toMatch(/4% × 45\.86% Banker wins/);
+  });
+
+  it('casino-procedure: the table-levels section lists the five tiers and marks the current table', () => {
+    rulesStore.set(applyTableLevel(DEFAULT_RULES, 'midi'));
+    render(<CasinoProcedureLesson />);
+    expect(screen.getByRole('heading', { level: 2, name: /table levels in las vegas/i })).toBeInTheDocument();
+    const rows = Array.from(document.querySelectorAll('tr[data-level]'));
+    expect(rows.map((r) => r.getAttribute('data-level'))).toEqual(['mini', 'floor', 'midi', 'high', 'private']);
+    expect(rows.filter((r) => r.hasAttribute('data-active')).map((r) => r.getAttribute('data-level'))).toEqual(['midi']);
+    expect(document.querySelector('tr[data-level="midi"]')).toHaveTextContent(/\$100 midi-baccarat · your table\$100–\$25,000\$100–\$5,000\$25–\$2,500The main baccarat pit/);
+    expect(document.querySelector('tr[data-level="high"]')).toHaveTextContent(/\$500 high-limit salon\$500–\$100,000\$500–\$10,000\$100–\$5,000Salon play/);
+    expect(body()).toMatch(/Your table\$100 midi-baccarat/);
+    expect(body()).toMatch(/Posted maximums on the Strip top out around \$25,000 a hand/);
+    expect(body()).toMatch(/Pick a table under Settings/);
+    // The sections after the new one are renumbered (the number is decorative, the TOC spells it out).
+    expect(screen.getByRole('link', { name: '7. Table levels in Las Vegas' })).toHaveAttribute('href', '#learn/casino-procedure/levels');
+    expect(screen.getByRole('link', { name: '10. EZ, classic and Super 6' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'EZ, classic and Super 6' })).toBeInTheDocument();
   });
 
   it('roads: the ties example text describes the hands that actually tie', () => {

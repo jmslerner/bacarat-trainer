@@ -15,12 +15,22 @@ describe('chip helpers', () => {
     expect(chipColor(500).name).toBe('purple');
     expect(chipColor(1000).name).toBe('pumpkin');
     expect(chipColor(5000).name).toBe('brown');
+    expect(chipColor(25000).name).toBe('gray');
+    expect(chipColor(100000).name).toBe('gold');
+    expect(chipColor(100000).solidEdge).toBe(true);
     expect(chipColor(37).name).toBe('gray');
   });
-  it('labels values', () => {
+  it('labels values, with thousands as K so they fit the face', () => {
+    expect(chipLabel(1)).toBe('1');
     expect(chipLabel(25)).toBe('25');
+    expect(chipLabel(500)).toBe('500');
     expect(chipLabel(2.5)).toBe('2.50');
-    expect(chipLabel(1000)).toBe('1000');
+    expect(chipLabel(1000)).toBe('1K');
+    expect(chipLabel(2500)).toBe('2.5K');
+    expect(chipLabel(5000)).toBe('5K');
+    expect(chipLabel(25000)).toBe('25K');
+    expect(chipLabel(100000)).toBe('100K');
+    expect(chipLabel(Number.NaN)).toBe('?');
   });
   it('breaks amounts into chips largest first', () => {
     expect(amountToChips(130, [1, 5, 25, 100, 500, 1000])).toEqual([100, 25, 5]);
@@ -39,6 +49,18 @@ describe('Chip', () => {
     expect(chip).toHaveTextContent('25');
     expect(chip.style.getPropertyValue('--chip-base')).toBe(chipColor(25).base);
     expect(chip.style.getPropertyValue('--chip-size')).toBe(`${CHIP_SIZES.md}px`);
+  });
+  it('renders the $100,000 plaque with its sheen and a solid edge, and plain chips without', () => {
+    render(<Chip value={100000} />);
+    const plaque = screen.getByRole('img', { name: '$100,000 chip' });
+    expect(plaque).toHaveTextContent('100K');
+    expect(plaque).toHaveAttribute('data-solid-edge');
+    expect(plaque.style.getPropertyValue('--chip-sheen')).toBe(chipColor(100000).sheen);
+    render(<Chip value={1000} onClick={() => undefined} />);
+    const pumpkin = screen.getByRole('button', { name: '$1,000 chip' });
+    expect(pumpkin).toHaveTextContent('1K');
+    expect(pumpkin).not.toHaveAttribute('data-solid-edge');
+    expect(pumpkin.style.getPropertyValue('--chip-sheen')).toBe(chipColor(1000).base);
   });
   it('forwards extra attributes on the image chip too', () => {
     render(<Chip value={5} data-testid="chip-5" title="five" />);

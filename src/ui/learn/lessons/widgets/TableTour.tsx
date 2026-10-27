@@ -69,7 +69,7 @@ function spotText(id: TourSpotId, rules: TableRules): SpotText {
       return {
         kicker: 'Rail',
         title: 'Chip tray',
-        text: `Your chips, in US casino colours: $1 white, $5 red, $25 green, $100 black, $500 purple, $1,000 orange ("pumpkin") and $5,000 brown. This table offers ${rules.chipDenominations.map((c) => formatMoney(c)).join(', ')}. Click a chip to pick it up, then click a betting spot to place it; place several to build a stack.`,
+        text: `Your chips, in US casino colours: $1 white, $5 red, $25 green, $100 black, $500 purple, $1,000 orange ("pumpkin"), $5,000 brown, $25,000 grey and the $100,000 gold plaque of the salons. This table offers ${rules.chipDenominations.map((c) => formatMoney(c)).join(', ')}. Click a chip to pick it up, then click a betting spot to place it; place several to build a stack.`,
       };
     case 'limits':
       return {

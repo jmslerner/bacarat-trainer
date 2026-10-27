@@ -128,6 +128,111 @@ export const RULE_PRESETS: Record<'ez' | 'commission' | 'super6', { name: string
     },
   });
 
+/* ---- table levels: Las Vegas stakes tiers ----------------------------------------------------- */
+
+export type TableLevelId = 'mini' | 'floor' | 'midi' | 'high' | 'private';
+
+/** A stakes tier: the limits and chip tray of a kind of Las Vegas table, with its suggested buy-in. */
+export interface TableLevel {
+  id: TableLevelId;
+  /** "$10 mini-baccarat", "$500 high-limit salon", … */
+  name: string;
+  limits: TableRules['limits'];
+  /** The chip tray at this table, ascending. */
+  chipDenominations: number[];
+  /** Suggested buy-in: 100 × the main minimum. */
+  buyIn: number;
+  /** Where you find this table. */
+  blurb: string;
+}
+
+export const TABLE_LEVEL_IDS: readonly TableLevelId[] = Object.freeze(['mini', 'floor', 'midi', 'high', 'private']);
+
+/**
+ * The five stakes tiers, lowest first. `mini` is the default table (DEFAULT_RULES carries its limits and chips),
+ * so a fresh install reads as the $10 mini-baccarat table. Deeply frozen; `applyTableLevel` copies.
+ */
+export const TABLE_LEVELS: Readonly<Record<TableLevelId, TableLevel>> = deepFreeze({
+  mini: {
+    id: 'mini',
+    name: '$10 mini-baccarat',
+    limits: { main: { min: 10, max: 5000 }, tie: { min: 5, max: 500 }, side: { min: 5, max: 500 } },
+    chipDenominations: [1, 5, 25, 100, 500, 1000],
+    buyIn: 1000,
+    blurb: 'The most common table on and off the Strip.',
+  },
+  floor: {
+    id: 'floor',
+    name: '$25 main floor',
+    limits: { main: { min: 25, max: 10000 }, tie: { min: 25, max: 2500 }, side: { min: 10, max: 1000 } },
+    chipDenominations: [5, 25, 100, 500, 1000, 5000],
+    buyIn: 2500,
+    blurb: 'Strip mini-bac on evenings and weekends; $5,000 chips appear.',
+  },
+  midi: {
+    id: 'midi',
+    name: '$100 midi-baccarat',
+    limits: { main: { min: 100, max: 25000 }, tie: { min: 100, max: 5000 }, side: { min: 25, max: 2500 } },
+    chipDenominations: [25, 100, 500, 1000, 5000, 25000],
+    buyIn: 10000,
+    blurb: 'The main baccarat pit; $25,000 is the usual posted ceiling on the Strip.',
+  },
+  high: {
+    id: 'high',
+    name: '$500 high-limit salon',
+    limits: { main: { min: 500, max: 100000 }, tie: { min: 500, max: 10000 }, side: { min: 100, max: 5000 } },
+    chipDenominations: [100, 500, 1000, 5000, 25000, 100000],
+    buyIn: 50000,
+    blurb: 'Salon play with limits raised for rated players.',
+  },
+  private: {
+    id: 'private',
+    name: '$5,000 special limit',
+    limits: { main: { min: 5000, max: 250000 }, tie: { min: 5000, max: 25000 }, side: { min: 1000, max: 10000 } },
+    chipDenominations: [1000, 5000, 25000, 100000],
+    buyIn: 500000,
+    blurb: 'By arrangement only: the top of what Las Vegas grants.',
+  },
+});
+
+function sameRange(a: BetLimits, b: BetLimits): boolean {
+  return a.min === b.min && a.max === b.max;
+}
+
+/** Whether two sets of table limits are the same (main, tie and side ranges). */
+export function limitsEqual(a: TableRules['limits'], b: TableRules['limits']): boolean {
+  return sameRange(a.main, b.main) && sameRange(a.tie, b.tie) && sameRange(a.side, b.side);
+}
+
+/** The rules with the level's limits and chip tray; everything else (variant, shoe, payouts) untouched. */
+export function applyTableLevel(rules: TableRules, id: TableLevelId): TableRules {
+  const level = TABLE_LEVELS[id];
+  const out = cloneRules(rules);
+  out.limits = { main: { ...level.limits.main }, tie: { ...level.limits.tie }, side: { ...level.limits.side } };
+  out.chipDenominations = [...level.chipDenominations];
+  return out;
+}
+
+/** The level whose limits AND chip tray the rules carry, or 'custom' when they match none. */
+export function tableLevelOf(rules: TableRules): TableLevelId | 'custom' {
+  const chips = rules.chipDenominations;
+  for (const id of TABLE_LEVEL_IDS) {
+    const level = TABLE_LEVELS[id];
+    if (!limitsEqual(rules.limits, level.limits)) continue;
+    if (chips.length !== level.chipDenominations.length || chips.some((c, i) => c !== level.chipDenominations[i])) continue;
+    return id;
+  }
+  return 'custom';
+}
+
+/** The buy-in a table suggests: the level's buy-in, or 100 × the main minimum for custom limits. */
+export function suggestedBuyIn(rules: TableRules): number {
+  const id = tableLevelOf(rules);
+  if (id !== 'custom') return TABLE_LEVELS[id].buyIn;
+  const min = rules.limits.main.min;
+  return isPositiveFinite(min) ? Math.round(min * 100 * 100) / 100 : TABLE_LEVELS.mini.buyIn;
+}
+
 /** The smallest cut-card depth that guarantees the hand in progress plus one more hand can always be completed. */
 export const MIN_CUT_CARD_FROM_END = 12;
 
@@ -145,6 +250,16 @@ function checkLimits(name: string, limits: BetLimits | undefined, problems: stri
   if (isPositiveFinite(limits.min) && isPositiveFinite(limits.max) && limits.max < limits.min) {
     problems.push(`${name} maximum (${limits.max}) is below the minimum (${limits.min})`);
   }
+}
+
+/** Problems with a set of table limits on their own (main / tie / side ranges); [] when they are usable. */
+export function validateTableLimits(limits: TableRules['limits'] | undefined): string[] {
+  if (!limits || typeof limits !== 'object') return ['Table limits are missing'];
+  const problems: string[] = [];
+  checkLimits('Main bet', limits.main, problems);
+  checkLimits('Tie bet', limits.tie, problems);
+  checkLimits('Side bet', limits.side, problems);
+  return problems;
 }
 
 /** Human-readable problems with a rule set; an empty array means the rules are playable. */
@@ -170,13 +285,7 @@ export function validateRules(rules: TableRules): string[] {
     }
   }
 
-  if (!rules.limits || typeof rules.limits !== 'object') {
-    problems.push('Table limits are missing');
-  } else {
-    checkLimits('Main bet', rules.limits.main, problems);
-    checkLimits('Tie bet', rules.limits.tie, problems);
-    checkLimits('Side bet', rules.limits.side, problems);
-  }
+  problems.push(...validateTableLimits(rules.limits));
 
   const totalCards = (rules.decks === 6 ? 6 : 8) * 52;
   if (!Number.isInteger(rules.cutCardFromEnd) || rules.cutCardFromEnd < MIN_CUT_CARD_FROM_END) {

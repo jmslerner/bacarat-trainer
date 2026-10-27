@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { BetType, Bets, Side } from '@/engine';
-import { BET_TYPES, roundCents, totalOnLayout, type ChipPlacement, type GameSession } from '@/engine';
+import { BET_TYPES, limitsEqual, roundCents, totalOnLayout, validateLayout, type ChipPlacement, type GameSession } from '@/engine';
 import { Scoreboard } from '@/roads';
 import { Button, Modal, SettingsDialog, cx, dealSpeedMs, formatMoney, publishDisplayedBankroll, ruleSummary, useIsPhone, useIsTablet, useSession, useSettings, useSound, type DealSpeed } from '@/ui/shell';
 import { autoPauseMs, dealDurationMs, type ChipStacks } from './animation/timeline';
@@ -47,8 +47,9 @@ function groupStacks(chips: readonly ChipPlacement[]): ChipStacks {
   return out;
 }
 
-function defaultChip(denominations: readonly number[], minMain: number): number {
-  if (denominations.includes(25)) return 25;
+/** The chip to pick up at a table: $25 when it covers the main minimum, otherwise the smallest chip that does (else the largest). */
+export function defaultChip(denominations: readonly number[], minMain: number): number {
+  if (denominations.includes(25) && 25 >= minMain) return 25;
   return denominations.find((d) => d >= minMain) ?? denominations[denominations.length - 1] ?? 1;
 }
 
@@ -158,9 +159,12 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
   }, [view.bankroll, view.stats.startingBankroll]);
   useEffect(() => () => publishDisplayedBankroll(null), []);
 
-  // A chip that left the tray (rules change) is no longer in hand.
+  // A new table (the limits changed) hands you its base chip; a chip that left the tray is no longer in hand.
+  const seenLimits = useRef(live.rules.limits);
   useEffect(() => {
-    if (!live.rules.chipDenominations.includes(selectedChip)) setSelectedChip(defaultChip(live.rules.chipDenominations, live.rules.limits.main.min));
+    const moved = !limitsEqual(seenLimits.current, live.rules.limits);
+    seenLimits.current = live.rules.limits;
+    if (moved || !live.rules.chipDenominations.includes(selectedChip)) setSelectedChip(defaultChip(live.rules.chipDenominations, live.rules.limits.main.min));
   }, [live.rules, selectedChip]);
 
   // A replaced session clears the felt (keyed by identity so StrictMode's re-run of the effect is a no-op).
@@ -262,7 +266,9 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
       dismissLayout();
       const r = session.placeBet(bet, selectedRef.current);
       if (!r.ok) {
-        notify(r.reason ?? 'That bet cannot be placed');
+        const { bankroll, rules } = session.getState();
+        const short = r.reason?.startsWith('Not enough bankroll') && bankroll < rules.limits.main.min ? ` — your bankroll is below the ${formatMoney(rules.limits.main.min)} table minimum; Buy-in to keep playing` : '';
+        notify(`${r.reason ?? 'That bet cannot be placed'}${short}`);
         return;
       }
       setNotice(null);
@@ -368,7 +374,10 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
   const liveStacks = useMemo(() => groupStacks(session.getChipStack()), [session, live.bets]);
   const dealCheck = useMemo(() => session.canDeal(), [session, live]);
   const betting = !anim.busy;
-  const rebetAmount = totalOnLayout(live.lastBets);
+  // The last bets can be repeated only when this table deals them (offered, within the maximum and the minimum):
+  // after a move to a table with higher minimums they are gone, not merely refused.
+  const rebetProblem = useMemo(() => (totalOnLayout(live.lastBets) > 0 ? validateLayout(live.lastBets, live.rules)[0] ?? null : null), [live.lastBets, live.rules]);
+  const rebetAmount = rebetProblem === null ? totalOnLayout(live.lastBets) : 0;
   const hasBets = totalOnLayout(live.bets) > 0;
   const inPlay = anim.phase === 'dealing' || anim.phase === 'settling';
   const coachBets: Bets = useMemo(() => {
@@ -434,6 +443,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
               speed={prefs.dealSpeed}
               onSpeed={(s: DealSpeed) => setPrefs({ dealSpeed: s })}
               rebetAmount={rebetAmount}
+              rebetProblem={rebetProblem}
               hasBets={hasBets}
               onDeal={onDeal}
               onRebet={onRebet}
@@ -448,7 +458,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
           </div>
           {!phone && (
             <p className={styles.shortcuts} aria-label="Keyboard shortcuts">
-              <kbd>1</kbd>–<kbd>6</kbd> chips · <kbd>P</kbd> <kbd>B</kbd> <kbd>T</kbd> Player / Banker / Tie · <kbd>D</kbd> Dragon 7 · <kbd>N</kbd> Panda 8 · <kbd>Space</kbd> deal · <kbd>R</kbd> rebet · <kbd>C</kbd> clear · <kbd>U</kbd> undo · <kbd>A</kbd> auto · right-click or long-press a spot to take a chip back · <kbd>Tab</kbd> + <kbd>Enter</kbd> presses any control
+              <kbd>1</kbd>–<kbd>9</kbd> chips · <kbd>P</kbd> <kbd>B</kbd> <kbd>T</kbd> Player / Banker / Tie · <kbd>D</kbd> Dragon 7 · <kbd>N</kbd> Panda 8 · <kbd>Space</kbd> deal · <kbd>R</kbd> rebet · <kbd>C</kbd> clear · <kbd>U</kbd> undo · <kbd>A</kbd> auto · right-click or long-press a spot to take a chip back · <kbd>Tab</kbd> + <kbd>Enter</kbd> presses any control
             </p>
           )}
         </div>

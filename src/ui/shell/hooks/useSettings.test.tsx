@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, renderHook } from '@testing-library/react';
-import { DEFAULT_RULES, RULE_PRESETS, type TableRules } from '@/engine';
+import { DEFAULT_RULES, RULE_PRESETS, applyTableLevel, tableLevelOf, type TableRules } from '@/engine';
 import { createPersistedStore, readStorage, useLocalStorage, writeStorage, __resetStoresForTests } from './storage';
-import { buyInStore, prefsStore, rulesStore, rulesEqual, sanitizePrefs, sanitizeRules, useSettings, DEFAULT_PREFS, matchPreset } from './useSettings';
+import { buyInStore, prefsStore, rulesStore, rulesEqual, sanitizePrefs, sanitizeRules, useSettings, DEFAULT_PREFS, matchPreset, applyRulePreset, ruleVariant, variantEqual, tableLevelLabel, STANDARD_CHIP_DENOMINATIONS } from './useSettings';
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -72,6 +72,24 @@ describe('sanitizers', () => {
     expect(rulesEqual({ ...DEFAULT_RULES, sideBets: { ...DEFAULT_RULES.sideBets, pairs: false } }, DEFAULT_RULES)).toBe(false);
     expect(rulesEqual({ ...DEFAULT_RULES, limits: { ...DEFAULT_RULES.limits, tie: { min: 5, max: 501 } } }, DEFAULT_RULES)).toBe(false);
   });
+  it('matchPreset compares the game variant only: a table level or chip tray never makes the preset custom', () => {
+    const high = applyTableLevel(DEFAULT_RULES, 'high');
+    expect(matchPreset(high)).toBe('ez');
+    expect(matchPreset({ ...high, bankerRule: 'commission', sideBets: { dragon7: false, panda8: false, pairs: true } })).toBe('commission');
+    expect(matchPreset({ ...DEFAULT_RULES, chipDenominations: [1, 5] })).toBe('ez');
+    expect(matchPreset({ ...DEFAULT_RULES, limits: { ...DEFAULT_RULES.limits, side: { min: 5, max: 1000 } } })).toBe('ez');
+    expect(matchPreset({ ...DEFAULT_RULES, tiePays: 9 })).toBeNull();
+    expect(matchPreset({ ...DEFAULT_RULES, decks: 6 })).toBeNull();
+    expect(variantEqual(high, DEFAULT_RULES)).toBe(true);
+    expect(rulesEqual(high, DEFAULT_RULES)).toBe(false);
+    expect(ruleVariant(high)).not.toHaveProperty('limits');
+    expect(ruleVariant(high)).not.toHaveProperty('chipDenominations');
+    expect(applyRulePreset(high, 'super6')).toEqual({ ...RULE_PRESETS.super6.rules, limits: high.limits, chipDenominations: high.chipDenominations });
+    expect(tableLevelLabel(high)).toBe('$500 high-limit salon');
+    expect(tableLevelLabel(DEFAULT_RULES)).toBe('$10 mini-baccarat');
+    expect(tableLevelLabel({ ...high, chipDenominations: [100] })).toBe('Custom limits');
+    expect(STANDARD_CHIP_DENOMINATIONS).toEqual([1, 5, 25, 100, 500, 1000, 5000, 25000, 100000]);
+  });
   it('sanitizePrefs keeps only known speeds and booleans', () => {
     expect(sanitizePrefs(null)).toEqual(DEFAULT_PREFS);
     expect(sanitizePrefs({ sound: 'yes', dealSpeed: 'warp', showCoach: false })).toEqual({ ...DEFAULT_PREFS, showCoach: false });
@@ -103,6 +121,20 @@ describe('useSettings', () => {
     });
     expect(problems.length).toBeGreaterThan(0);
     expect(result.current.rules.tiePays).toBe(9); // invalid rules are not persisted
+  });
+
+  it('applyPreset switches the variant and keeps the table level', () => {
+    const { result } = renderHook(() => useSettings());
+    act(() => {
+      expect(result.current.setRules(applyTableLevel(DEFAULT_RULES, 'high'))).toEqual([]);
+    });
+    act(() => result.current.applyPreset('commission'));
+    expect(result.current.rules.bankerRule).toBe('commission');
+    expect(result.current.rules.sideBets).toEqual({ dragon7: false, panda8: false, pairs: true });
+    expect(tableLevelOf(result.current.rules)).toBe('high');
+    expect(matchPreset(result.current.rules)).toBe('commission');
+    act(() => result.current.applyPreset('ez'));
+    expect(result.current.rules).toEqual(applyTableLevel(DEFAULT_RULES, 'high'));
   });
 
   it('persists prefs and buy-in, and toggles', () => {

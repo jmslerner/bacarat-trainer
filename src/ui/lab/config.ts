@@ -2,7 +2,7 @@
  * The Strategy Lab's form model (SPEC §5.7): what the user edits, how it becomes a `SimConfig`, the five presets,
  * validation (errors block a run, warnings do not) and the run-size estimate. Pure TypeScript.
  */
-import { RULE_PRESETS, cloneRules, formatMoney, randomSeed } from '@/engine';
+import { RULE_PRESETS, cloneRules, formatMoney, randomSeed, suggestedBuyIn } from '@/engine';
 import type { TableRules } from '@/engine';
 import { getSelector, getSystem, paramValue, validateSimConfig } from '@/strategy';
 import type { SideBetMode, SimConfig } from '@/strategy';
@@ -79,13 +79,13 @@ export function normalizeSystemParams(systemId: string, params?: Record<string, 
   return out;
 }
 
-export function defaultLabConfig(opts: { bankroll?: number; seed?: number } = {}): LabConfig {
+export function defaultLabConfig(opts: { bankroll?: number; seed?: number; unit?: number } = {}): LabConfig {
   return {
     rulesChoice: 'current',
     selectorId: 'alwaysBanker',
     systemId: 'flat',
     systemParams: {},
-    unit: DEFAULT_UNIT,
+    unit: opts.unit !== undefined && Number.isFinite(opts.unit) && opts.unit > 0 ? opts.unit : DEFAULT_UNIT,
     bankroll: opts.bankroll !== undefined && Number.isFinite(opts.bankroll) && opts.bankroll > 0 ? opts.bankroll : DEFAULT_BANKROLL,
     shoesPerTrial: DEFAULT_SHOES_PER_TRIAL,
     trials: DEFAULT_TRIALS,
@@ -96,6 +96,24 @@ export function defaultLabConfig(opts: { bankroll?: number; seed?: number } = {}
     sideUnits: 1,
     seed: opts.seed !== undefined && Number.isFinite(opts.seed) ? Math.round(opts.seed) : randomSeed(),
   };
+}
+
+export interface LabMoneyDefaults {
+  unit: number;
+  bankroll: number;
+}
+
+/**
+ * The money defaults for a table: the unit is the table's main minimum ($10 at the $10 table, $500 in the salon)
+ * and the bankroll is `buyIn` when given (the Settings buy-in, which follows the table level), otherwise the
+ * table's suggested buy-in (the level's, or 100 × the main minimum). Both are clamped to the Lab's limits.
+ */
+export function labMoneyDefaults(rules: TableRules, buyIn?: number): LabMoneyDefaults {
+  const min = rules.limits.main.min;
+  const unit = Number.isFinite(min) && min >= LAB_LIMITS.unit.min ? Math.min(min, LAB_LIMITS.unit.max) : DEFAULT_UNIT;
+  const wanted = buyIn !== undefined && Number.isFinite(buyIn) && buyIn > 0 ? buyIn : suggestedBuyIn(rules);
+  const bankroll = Math.min(Math.max(wanted, LAB_LIMITS.bankroll.min), LAB_LIMITS.bankroll.max);
+  return { unit, bankroll };
 }
 
 /* ---- presets ------------------------------------------------------------------------------ */

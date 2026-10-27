@@ -10,7 +10,7 @@ import { ConfigForm } from './components/ConfigForm';
 import { ResultsPanel } from './components/ResultsPanel';
 import { ProgressPanel, RunBar } from './components/RunPanels';
 import { SavedRunsTable } from './components/SavedRunsTable';
-import { applyLabPreset, defaultLabConfig, labPresetFromHash, resolveRules, sanitizeLabConfig, validateLabConfig, type LabConfig } from './config';
+import { applyLabPreset, defaultLabConfig, labMoneyDefaults, labPresetFromHash, resolveRules, sanitizeLabConfig, validateLabConfig, type LabConfig } from './config';
 import { expectedEdge } from './edge';
 import { MAX_SAVED_RUNS, clearRuns, removeRun, saveRun, summarizeResult, useSavedRuns, type SavedRun } from './savedRuns';
 import { useSimulationRunner } from './useSimulationRunner';
@@ -24,7 +24,12 @@ export interface LabViewProps {
 export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
   const { rules: currentRules, buyIn } = useSettings();
   const route = useHashRoute();
-  const [config, setConfig] = useState<LabConfig>(() => ({ ...defaultLabConfig({ bankroll: buyIn }), ...initialConfig }));
+  const [config, setConfig] = useState<LabConfig>(() => {
+    const money = labMoneyDefaults(resolveRules(initialConfig?.rulesChoice ?? 'current', currentRules), buyIn);
+    return { ...defaultLabConfig(money), ...initialConfig };
+  });
+  /** Money fields still at the table's defaults: they follow the table (level, buy-in, rules choice) until typed over. */
+  const [moneyAuto, setMoneyAuto] = useState({ unit: initialConfig?.unit === undefined, bankroll: initialConfig?.bankroll === undefined });
   // `#lab/<presetId>` (the lessons' "Lab preset" links) applies that preset; `#lab` leaves the form alone.
   const hashPreset = useMemo(() => labPresetFromHash(route.hash), [route.hash]);
   useEffect(() => {
@@ -47,7 +52,23 @@ export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
   const running = runner.state.status === 'running';
   const result = runner.state.result;
 
-  const update = useCallback((patch: Partial<LabConfig>) => setConfig((c) => ({ ...c, ...patch })), []);
+  // The unit follows the table's main minimum and the bankroll the buy-in while the user has not edited them.
+  useEffect(() => {
+    if (!moneyAuto.unit && !moneyAuto.bankroll) return;
+    const money = labMoneyDefaults(rules, buyIn);
+    setConfig((c) => {
+      const unit = moneyAuto.unit ? money.unit : c.unit;
+      const bankroll = moneyAuto.bankroll ? money.bankroll : c.bankroll;
+      return unit === c.unit && bankroll === c.bankroll ? c : { ...c, unit, bankroll };
+    });
+  }, [rules, buyIn, moneyAuto]);
+
+  const update = useCallback((patch: Partial<LabConfig>) => {
+    if ('unit' in patch || 'bankroll' in patch) {
+      setMoneyAuto((a) => ({ unit: a.unit && !('unit' in patch), bankroll: a.bankroll && !('bankroll' in patch) }));
+    }
+    setConfig((c) => ({ ...c, ...patch }));
+  }, []);
   const replace = useCallback((next: LabConfig) => setConfig(next), []);
 
   const run = useCallback(() => {
@@ -81,6 +102,7 @@ export function LabView({ initialConfig }: LabViewProps = {}): ReactNode {
   }, [result, savedResult]);
 
   const load = useCallback((saved: SavedRun) => {
+    setMoneyAuto({ unit: false, bankroll: false });
     setConfig((c) => sanitizeLabConfig(saved.form, c));
     const el = formRef.current;
     if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'start' });

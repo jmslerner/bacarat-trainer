@@ -1,5 +1,5 @@
 /**
- * Table keyboard shortcuts: 1–6 select a chip, P/B/T place on Player/Banker/Tie, D Dragon 7, N Panda 8,
+ * Table keyboard shortcuts: 1–9 select a chip (the tray's position), P/B/T place on Player/Banker/Tie, D Dragon 7, N Panda 8,
  * Space deal (or fast-forward the dealing), R rebet, C clear, U undo, A auto-deal.
  *
  * Ignored while typing in a field, with modifier keys, and while a modal dialog is open.
@@ -55,7 +55,7 @@ export function isModalOpen(): boolean {
 
 /** Maps a key to the shortcut action, or null. Exported for tests. */
 export function shortcutFor(key: string): { type: 'chip'; index: number } | { type: 'bet'; bet: BetType } | { type: 'deal' | 'rebet' | 'clear' | 'undo' | 'auto' } | null {
-  if (/^[1-6]$/.test(key)) return { type: 'chip', index: Number(key) - 1 };
+  if (/^[1-9]$/.test(key)) return { type: 'chip', index: Number(key) - 1 };
   const k = key.toLowerCase();
   if (k in BET_KEYS) return { type: 'bet', bet: BET_KEYS[k] };
   if (k === ' ' || k === 'spacebar') return { type: 'deal' };

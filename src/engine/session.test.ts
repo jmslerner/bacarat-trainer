@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameSession } from './session';
-import { cloneRules, DEFAULT_RULES, RULE_PRESETS } from './rules';
+import { cloneRules, DEFAULT_RULES, RULE_PRESETS, applyTableLevel } from './rules';
 import { BET_TYPES } from './types';
 import type { BetType, HandResult, SessionState, TableRules } from './types';
 
@@ -206,6 +206,22 @@ describe('GameSession: dealing', () => {
     s.placeBet('banker', 100);
     expect(s.rebet().ok).toBe(true);
     expect(s.getState().bets).toEqual({ player: 50, tie: 5 });
+  });
+
+  it('rebet refuses the last bets once a table change puts them below the minimum (the layout stays empty) and allows them again when the limits come back', () => {
+    const s = new GameSession({ seed: 7, bankroll: 100000 });
+    s.placeBet('banker', 50);
+    s.placeBet('dragon7', 25);
+    s.deal();
+    expect(s.getState().lastBets).toEqual({ banker: 50, dragon7: 25 });
+    s.setRules(applyTableLevel(DEFAULT_RULES, 'high'));
+    expect(s.rebet()).toEqual({ ok: false, reason: 'Banker bet of $50 is below the table minimum of $500' });
+    expect(s.getState().bets).toEqual({});
+    expect(s.getChipStack()).toEqual([]);
+    expect(s.getState().lastBets).toEqual({ banker: 50, dragon7: 25 }); // remembered for when the player comes back
+    s.setRules(DEFAULT_RULES);
+    expect(s.rebet()).toEqual({ ok: true });
+    expect(s.getState().bets).toEqual({ banker: 50, dragon7: 25 });
   });
 
   it('is reproducible: the same seed and actions give the same hands and bankroll', () => {
