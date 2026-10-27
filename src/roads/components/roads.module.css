@@ -1,0 +1,155 @@
+/* Shared styling for the road views. Colours come from the app's design tokens with casino fallbacks. */
+
+.frame {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--road-grid-strong, rgba(242, 234, 215, 0.28));
+  border-radius: 3px;
+  background: var(--road-bg, #0b1117);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.55);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 234, 215, 0.25) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* The frame is focusable while it overflows (keyboard scrolling); its own box-shadow would otherwise hide the
+   app's focus ring. */
+.frame:focus-visible {
+  outline: 2px solid var(--gold, #d4af37);
+  outline-offset: 2px;
+}
+
+.frame::-webkit-scrollbar {
+  height: 5px;
+}
+
+.frame::-webkit-scrollbar-thumb {
+  background: rgba(242, 234, 215, 0.25);
+  border-radius: 3px;
+}
+
+.svg {
+  display: block;
+  /* The app's global `img, svg { max-width: 100% }` would otherwise clamp a long road to its frame and squeeze
+     every column into view; the road must grow past the frame so it can scroll to the newest columns. */
+  max-width: none;
+  height: auto;
+  direction: ltr;
+}
+
+.grid {
+  stroke: var(--road-grid, rgba(242, 234, 215, 0.14));
+  stroke-width: 1;
+}
+
+/* --- symbol colours ------------------------------------------------------------------------------ */
+
+.banker {
+  stroke: var(--banker, #c8102e);
+}
+
+.player {
+  stroke: var(--player, #1f6fd1);
+}
+
+.tie {
+  stroke: var(--tie, #2e9e5b);
+}
+
+.bankerFill {
+  fill: var(--banker, #c8102e);
+}
+
+.playerFill {
+  fill: var(--player, #1f6fd1);
+}
+
+.tieFill {
+  fill: var(--tie, #2e9e5b);
+}
+
+.ivoryFill {
+  fill: var(--ivory, #f2ead7);
+}
+
+.goldStroke {
+  stroke: var(--gold, #d4af37);
+}
+
+.goldFill {
+  fill: var(--gold, #d4af37);
+}
+
+.inkFill {
+  fill: #141008;
+}
+
+.pairDot {
+  stroke: var(--road-bg, #0b1117);
+  stroke-width: 1;
+}
+
+.letter {
+  font-family: var(--font-body, 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  user-select: none;
+  pointer-events: none;
+}
+
+.outlined {
+  paint-order: stroke;
+  stroke: var(--road-bg, #0b1117);
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+}
+
+.ghost {
+  opacity: 0.6;
+  animation: roads-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes roads-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ghost {
+    animation: none;
+  }
+}
+
+/* --- captioned panel used by the Scoreboard --------------------------------------------------------- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.panelLabel {
+  font-family: var(--font-display, 'Cinzel', Georgia, 'Times New Roman', serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold, #d4af37);
+  opacity: 0.9;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

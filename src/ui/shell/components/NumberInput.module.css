@@ -1,0 +1,39 @@
+.wrap { width: 100%; }
+.input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ivory);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-align: right;
+  outline: none;
+}
+.input:focus-visible { box-shadow: none; }
+.input::placeholder { color: var(--ivory-faint); }
+.affix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px 0 10px;
+  color: var(--ivory-muted);
+  font-size: var(--text-sm);
+}
+.affix + .input { padding-left: 2px; }
+.input + .affix { padding: 0 10px 0 4px; }
+.step {
+  flex: none;
+  width: 34px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--gold-light);
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.step:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: 1px solid var(--border); }
+.step:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; border-left: 1px solid var(--border); }
+.step:hover:not(:disabled) { background: rgba(241, 214, 120, 0.14); }
+.step:disabled { opacity: 0.35; cursor: not-allowed; }

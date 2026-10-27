@@ -1,3 +1,263 @@
-/* placeholder: replaced by the UI shell */
-:root { color-scheme: dark; }
-body { margin: 0; background: #0b2e1f; color: #f2ead7; font-family: system-ui, sans-serif; }
+/* ==========================================================================
+   Baccarat Trainer — global design tokens & base styles
+   Dark casino theme only: deep green felt, mahogany rail, gold trim, ivory text.
+   Casino display conventions: Banker = red, Player = blue, Tie = green.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Felt ---- */
+  --felt: #0f5132;
+  --felt-light: #177a48;
+  --felt-deep: #083b24;
+  --felt-shadow: #052617;
+  --felt-line: rgba(241, 214, 120, 0.55);      /* painted layout lines */
+  --felt-line-soft: rgba(241, 214, 120, 0.28);
+
+  /* ---- Rail (mahogany) ---- */
+  --rail: #4a2412;
+  --rail-light: #6e3a1d;
+  --rail-dark: #2a140a;
+  --rail-sheen: #8a4a28;
+
+  /* ---- Gold trim ---- */
+  --gold: #d4af37;
+  --gold-light: #f1d678;
+  --gold-dark: #8c6d1f;
+  --gold-glow: rgba(241, 214, 120, 0.45);
+
+  /* ---- Text ---- */
+  --ivory: #f3ead8;
+  --ivory-dim: rgba(243, 234, 216, 0.74);
+  --ivory-muted: rgba(243, 234, 216, 0.52);
+  --ivory-faint: rgba(243, 234, 216, 0.3);
+  --ink: #16110b;                               /* dark text on gold / chips */
+
+  /* ---- Bet colours (casino display conventions) ---- */
+  --banker: #c8102e;
+  --banker-light: #e74c5b;
+  --banker-deep: #8a0b20;
+  --player: #1f5fbf;
+  --player-light: #5f93e6;
+  --player-deep: #15407f;
+  --tie: #2e9e5b;
+  --tie-light: #5fc98a;
+  --tie-deep: #1c6b3b;
+  --dragon: #e9a118;                            /* Dragon 7 spot */
+  --panda: #e9e4f2;                             /* Panda 8 spot */
+  --pair: #9b59b6;
+  --win: #58d68d;
+  --loss: #ff6b6b;
+  --push: #c7bfae;
+
+  /* ---- Cards ---- */
+  --card-bg: #fbf8f0;
+  --card-edge: #cfc6b2;
+  --card-red: #c0222b;
+  --card-black: #1c1a17;
+  --card-back: #6b1a26;
+  --card-back-deep: #45111a;
+  --card-back-trim: #e6c468;
+
+  /* ---- Surfaces ---- */
+  --bg: #071a11;
+  --surface: rgba(4, 22, 14, 0.62);
+  --surface-2: rgba(4, 22, 14, 0.82);
+  --surface-raised: #0c2a1b;
+  --surface-input: rgba(0, 0, 0, 0.35);
+  --border: rgba(241, 214, 120, 0.22);
+  --border-strong: rgba(241, 214, 120, 0.5);
+  --backdrop: rgba(2, 10, 6, 0.72);
+
+  /* ---- Shadows ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.6);
+  --shadow-inset: inset 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-gold: 0 0 0 1px var(--gold-dark), 0 0 18px var(--gold-glow);
+  --focus-ring: 0 0 0 3px rgba(241, 214, 120, 0.65);
+
+  /* ---- Spacing scale (4px base) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+  --gutter: 16px;
+
+  /* ---- Radii ---- */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* ---- Type ---- */
+  --font-display: 'Cinzel', 'Trajan Pro', 'Times New Roman', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --text-xs: 0.72rem;
+  --text-sm: 0.84rem;
+  --text-md: 0.95rem;
+  --text-lg: 1.1rem;
+  --text-xl: 1.35rem;
+  --text-2xl: 1.7rem;
+  --tracking-caps: 0.12em;
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 120ms;
+  --dur-med: 220ms;
+  --dur-slow: 420ms;
+
+  /* ---- Layers ---- */
+  --z-sticky: 50;
+  --z-dropdown: 100;
+  --z-modal: 1000;
+  --z-tooltip: 1100;
+  --z-toast: 1200;
+
+  /* ---- Shell ---- */
+  --topbar-height: 64px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter: 12px;
+    --topbar-height: 100px;
+  }
+}
+
+/* ---- Reset ---------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 120% 70% at 50% -10%, var(--felt-light) 0%, var(--felt) 38%, var(--felt-deep) 72%, var(--felt-shadow) 100%);
+  background-attachment: fixed;
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Felt grain: a fixed, non-interactive noise layer under the app. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.09;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0 0.6 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ivory);
+  margin: 0 0 var(--space-3);
+  line-height: 1.2;
+}
+h1 { font-size: var(--text-2xl); }
+h2 { font-size: var(--text-xl); }
+h3 { font-size: var(--text-lg); }
+h4 { font-size: var(--text-md); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--gold-light); }
+
+p { margin: 0 0 var(--space-3); }
+a { color: var(--gold-light); text-decoration-color: var(--gold-dark); text-underline-offset: 2px; }
+a:hover { color: #fff3c4; }
+small { font-size: var(--text-sm); color: var(--ivory-dim); }
+code, kbd { font-family: var(--font-mono); font-size: 0.9em; }
+kbd {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ivory);
+  line-height: 1.5;
+}
+hr { border: 0; border-top: 1px solid var(--border); margin: var(--space-4) 0; }
+table { border-collapse: collapse; }
+img, svg { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+legend { padding: 0; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-xs);
+}
+
+::selection { background: var(--gold); color: var(--ink); }
+
+/* Dark scrollbars (WebKit / Blink) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); }
+::-webkit-scrollbar-thumb { background: var(--rail-light); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--rail-sheen); background-clip: padding-box; }
+
+/* ---- Global utilities ------------------------------------------------------ */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0;
+}
+.c-banker { color: var(--banker-light); }
+.c-player { color: var(--player-light); }
+.c-tie { color: var(--tie-light); }
+.c-gold { color: var(--gold-light); }
+.c-win { color: var(--win); }
+.c-loss { color: var(--loss); }
+.num { font-variant-numeric: tabular-nums; }
+.caps { text-transform: uppercase; letter-spacing: var(--tracking-caps); font-size: var(--text-xs); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,53 @@
+.toggle {
+  --track-w: 46px;
+  --track-h: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+.sm { --track-w: 36px; --track-h: 20px; }
+.disabled { cursor: not-allowed; opacity: 0.5; }
+.text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.label { font-weight: 500; color: var(--ivory); }
+.description { font-size: var(--text-xs); color: var(--ivory-muted); }
+
+.input {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+.track {
+  position: relative;
+  flex: none;
+  width: var(--track-w);
+  height: var(--track-h);
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border);
+  transition: background-color var(--dur-med) var(--ease-out), box-shadow var(--dur-fast);
+}
+.thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(var(--track-h) - 6px);
+  height: calc(var(--track-h) - 6px);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fffaf0, #d9cfb8);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  transition: transform var(--dur-med) var(--ease-spring), background var(--dur-med);
+}
+.input:checked + .track {
+  background: linear-gradient(180deg, var(--gold-dark), var(--gold));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--gold-dark), 0 0 10px var(--gold-glow);
+}
+.input:checked + .track .thumb {
+  transform: translateX(calc(var(--track-w) - var(--track-h)));
+  background: linear-gradient(180deg, #fffdf5, #f1e4bd);
+}
+.input:focus-visible + .track { box-shadow: var(--focus-ring), inset 0 1px 4px rgba(0, 0, 0, 0.6); }

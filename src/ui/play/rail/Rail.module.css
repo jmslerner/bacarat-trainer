@@ -1,0 +1,89 @@
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+.railPhone { gap: var(--space-2); padding: var(--space-2) var(--space-1) 0; }
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* ---- chip tray ---- */
+.tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px 14px 8px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.3));
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--gold-dark), 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.railPhone .tray { gap: 6px; padding: 6px 8px 4px; flex: 1 1 100%; justify-content: center; }
+.trayChip { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
+.trayKey {
+  padding: 0 5px;
+  font-size: 0.6rem;
+  line-height: 1.4;
+  color: var(--ivory-muted);
+  border-color: rgba(243, 234, 216, 0.22);
+  background: rgba(0, 0, 0, 0.3);
+}
+.traySelected {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-left: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--ivory);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.trayLabel { font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold-light); font-weight: 600; }
+
+/* ---- plaques ---- */
+.plaques { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-3); }
+.railPhone .plaques { flex: 1 1 100%; justify-content: center; gap: var(--space-2); }
+.bankrollPlaque { min-width: 150px; }
+.bankrollValue { display: inline-block; font-variant-numeric: tabular-nums; font-size: 1.05em; color: var(--ivory); }
+.limitsPlaque { min-width: 0; }
+
+/* ---- controls ---- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.mainControls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.railPhone .mainControls { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.railPhone .dealButton { grid-column: 1 / -1; }
+.secondaryControls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.railPhone .secondaryControls { flex: 1 1 100%; justify-content: center; }
+.speed { min-width: 0; }
+
+/* ---- status line ---- */
+.status { min-height: 22px; }
+.notice {
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  animation: noticeIn var(--dur-med) var(--ease-out) both;
+}
+.noticeError { background: rgba(200, 16, 46, 0.22); box-shadow: inset 0 0 0 1px var(--banker); color: #ffd9dc; }
+.noticeInfo { background: rgba(241, 214, 120, 0.12); box-shadow: inset 0 0 0 1px var(--gold-dark); color: var(--gold-light); }
+@keyframes noticeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.reason { margin: 0; padding: 2px 4px; font-size: var(--text-xs); letter-spacing: 0.06em; color: var(--ivory-muted); }

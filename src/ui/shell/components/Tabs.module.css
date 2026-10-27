@@ -1,0 +1,81 @@
+.list {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.list::-webkit-scrollbar { display: none; }
+.fill .tab { flex: 1; }
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ivory-dim);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+}
+.tab:hover:not(:disabled) { color: var(--ivory); }
+.tab:disabled { opacity: 0.4; cursor: not-allowed; }
+.tab:focus-visible { box-shadow: var(--focus-ring); }
+.sm .tab { padding: 7px 12px; font-size: var(--text-xs); }
+
+.underline { border-bottom: 1px solid var(--border); }
+.underline .tab { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.underline .tab::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+  transition: background-color var(--dur-fast);
+}
+.underline .selected { color: var(--gold-light); }
+.underline .selected::after { background: var(--gold); box-shadow: 0 0 10px var(--gold-glow); }
+
+.pill {
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border);
+}
+.pill .tab { border-radius: var(--radius-pill); padding: 8px 16px; }
+.pill .selected {
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--gold-light), var(--gold));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 1px 3px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.icon { display: inline-flex; }
+.icon > svg { width: 1.1em; height: 1.1em; }
+.badge {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(241, 214, 120, 0.18);
+  color: var(--gold-light);
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  letter-spacing: 0;
+}
+.pill .selected .badge { background: rgba(0, 0, 0, 0.2); color: var(--ink); }
+/* The selected pill's own shadow must not hide the keyboard focus ring. */
+.pill .tab:focus-visible { box-shadow: var(--focus-ring), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+
+.panel { outline: none; padding-top: var(--space-4); }
+.panel:focus-visible { box-shadow: none; }

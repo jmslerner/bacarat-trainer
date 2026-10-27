@@ -395,6 +395,10 @@ export function runSimulation(config: SimConfig, onProgress?: (done: number, tot
 export function simulateInWorker(config: SimConfig, onProgress?: (done: number, total: number) => void): { promise: Promise<SimResult>; cancel(): void };
 //  worker.ts: `new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })`
 export function describeStrategy(config: StrategyConfig): string;
+
+// Simulated side-bet EV by true-count bucket (from >= 50,000 shoes), used by the Learn mode and the Coach:
+export interface CountEvRow { tcMin: number; tcMax: number /* exclusive, Infinity for the top bucket */; hands: number; frequency: number /* share of all hands */; ev: number /* per unit wagered, e.g. +0.03 */ }
+export const COUNT_EV_TABLE: Record<'dragon7' | 'panda8', CountEvRow[]>;   // buckets like [-Inf,-2), [-2,0), [0,2), [2,4), [4,6), [6,8), [8,Inf)
 ```
 
 The simulator MUST use `dealHand`/`settleBets` from `@/engine` (one code path for play and simulation) with
