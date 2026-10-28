@@ -57,7 +57,8 @@ describe('LearnView', () => {
       const link = nav.querySelector(`[data-lesson-link="${l.id}"]`);
       expect(link).toHaveAttribute('aria-current', 'page');
       expect(nav.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
-      expect(document.title).toContain(l.title);
+      // The title is set by the lesson's passive effect, which can land a tick after the heading under a loaded run.
+      await waitFor(() => expect(document.title).toContain(l.title), { timeout: 5000 });
     }
   }, 120000);
 
