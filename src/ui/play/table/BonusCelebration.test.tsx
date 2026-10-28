@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { BonusCelebration, FADE_MS, payoutLine } from './BonusCelebration';
+import { BonusCelebration, FADE_MS, bannerCentre, payoutLine } from './BonusCelebration';
 import type { Celebration } from '../animation/types';
 
 const dragonWon: Celebration = { id: 'dragon7-1', kind: 'dragon7', side: 'banker', pays: 40, won: 200, hadBet: true, bankerPush: true, holdMs: 2600 };
@@ -22,6 +22,24 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+
+describe('bannerCentre', () => {
+  it('centres the banner over the visible part of the felt, below the sticky top bar, and keeps it inside the felt', () => {
+    // The whole felt on screen: its own middle.
+    expect(bannerCentre(120, 600, 900)).toBeCloseTo(0.5, 2);
+    // A phone, scrolled to the DEAL button: the felt starts 460px above the viewport and 140px of it show under a
+    // 100px top bar — the banner hugs the visible bottom, no lower than 80% of the felt.
+    expect(bannerCentre(-460, 700, 800, 100)).toBeCloseTo(0.8, 2);
+    // Half scrolled: the visible part is 100..600 → its middle, 350, is 450px down a 700px felt.
+    expect(bannerCentre(-100, 700, 800, 100)).toBeCloseTo(450 / 700, 3);
+    // Nothing of it on screen (or nothing measurable): the felt's own middle.
+    expect(bannerCentre(-750, 700, 800, 100)).toBe(0.46);
+    expect(bannerCentre(0, 0, 800)).toBe(0.46);
+    expect(bannerCentre(50, 700, 0)).toBe(0.46);
+    // Only the top of the felt is above the fold: high, but no higher than 25%.
+    expect(bannerCentre(600, 700, 800)).toBe(0.25);
+  });
 });
 
 describe('BonusCelebration', () => {

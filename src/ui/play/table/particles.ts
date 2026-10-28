@@ -62,8 +62,8 @@ export function spawnEmber(w: number, h: number, rng: Rng = Math.random): Ember 
 }
 
 export function spawnConfetti(w: number, h: number, rng: Rng = Math.random): Confetti {
-  const angle = -Math.PI / 2 + (rng() - 0.5) * Math.PI * 1.15;
-  const speed = 180 + rng() * 420;
+  const angle = -Math.PI / 2 + (rng() - 0.5) * Math.PI * 1.25;
+  const speed = 140 + rng() * 380;
   return {
     x: w * 0.5 + (rng() - 0.5) * w * 0.12,
     y: h * 0.42,
@@ -94,7 +94,7 @@ export function stepEmber(p: Ember, dt: number): boolean {
 export function stepConfetti(p: Confetti, dt: number, h: number): boolean {
   p.age += dt;
   if (p.age >= p.life) return false;
-  p.vy += 820 * dt; // gravity
+  p.vy += 640 * dt; // gravity
   const drag = Math.pow(0.22, dt); // air resistance (per second)
   p.vx *= drag;
   p.vy = p.vy > 0 ? Math.min(p.vy, 260) : p.vy * drag;
@@ -166,7 +166,7 @@ export function runParticles(canvas: HTMLCanvasElement, kind: BonusKind, duratio
   const confetti: Confetti[] = [];
   const sprites = dragon ? emberSprites(g) : [];
   const spawnUntil = durationMs * (dragon ? 0.62 : 0.12);
-  const burstAt = [0, 180, 420];
+  const burstAt = [0, 220, 520];
   let bursts = 0;
   let spawnDebt = 0;
   let raf = 0;
@@ -205,7 +205,7 @@ export function runParticles(canvas: HTMLCanvasElement, kind: BonusKind, duratio
       g.globalCompositeOperation = 'source-over';
     } else {
       while (bursts < burstAt.length && elapsed >= burstAt[bursts]) {
-        const n = bursts === 0 ? 70 : 45;
+        const n = bursts === 0 ? 110 : 70;
         for (let i = 0; i < n; i++) confetti.push(spawnConfetti(w, h));
         bursts += 1;
       }

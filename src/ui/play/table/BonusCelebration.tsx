@@ -60,14 +60,29 @@ function ParticleCanvas({ kind, id, durationMs }: { kind: BonusKind; id: string;
 
 type Stage = 'in' | 'leaving' | 'done';
 
-/** The banner's vertical centre as a fraction of the felt's height: the middle of the felt's visible part, kept well inside it. */
-export function bannerCentre(feltTop: number, feltHeight: number, viewportHeight: number): number {
+/**
+ * The banner's vertical centre as a fraction of the felt's height: the middle of the felt's visible part (below the
+ * sticky top bar, `topInset`), kept inside the felt. With none of it on screen, or nothing measurable, the felt's
+ * own middle.
+ */
+export function bannerCentre(feltTop: number, feltHeight: number, viewportHeight: number, topInset = 0): number {
   if (!(feltHeight > 0) || !(viewportHeight > 0)) return 0.46;
-  const top = Math.max(0, feltTop);
+  const top = Math.max(Math.max(0, topInset), feltTop);
   const bottom = Math.min(viewportHeight, feltTop + feltHeight);
-  if (bottom - top < feltHeight * 0.35) return 0.46; // (almost) nothing of it on screen: the felt's own middle
+  if (bottom <= top) return 0.46;
   const centre = ((top + bottom) / 2 - feltTop) / feltHeight;
-  return Math.min(0.72, Math.max(0.28, centre));
+  return Math.min(0.8, Math.max(0.25, centre));
+}
+
+/** The sticky top bar's height, from the shell's `--topbar-height` token (0 when unavailable). */
+function topBarInset(): number {
+  try {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--topbar-height');
+    const px = parseFloat(raw);
+    return Number.isFinite(px) ? px : 0;
+  } catch {
+    return 0;
+  }
 }
 
 export function BonusCelebration({ celebration, phone = false, reducedMotion }: BonusCelebrationProps): ReactNode {
@@ -87,7 +102,7 @@ export function BonusCelebration({ celebration, phone = false, reducedMotion }: 
     try {
       const rect = el.getBoundingClientRect();
       const viewport = window.innerHeight || document.documentElement.clientHeight || 0;
-      setCentre(bannerCentre(rect.top, rect.height, viewport));
+      setCentre(bannerCentre(rect.top, rect.height, viewport, topBarInset()));
     } catch {
       setCentre(0.46);
     }
@@ -132,8 +147,11 @@ export function BonusCelebration({ celebration, phone = false, reducedMotion }: 
         <div className={styles.fxPayout} data-testid="bonus-payout">
           {payoutParts(celebration).map((part, i) => (
             <Fragment key={part.tone}>
-              {i > 0 && <span className={styles.fxSep}> · </span>}
-              <span className={cx(part.tone === 'won' && styles.fxWon, part.tone === 'none' && styles.fxNoBet)}>{part.text}</span>
+              {i > 0 && ' '}
+              <span className={cx(styles.fxPart, part.tone === 'won' && styles.fxWon, part.tone === 'none' && styles.fxNoBet)}>
+                {i > 0 && <span className={styles.fxSep}>· </span>}
+                {part.text}
+              </span>
             </Fragment>
           ))}
         </div>

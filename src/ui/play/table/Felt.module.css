@@ -381,13 +381,14 @@
 }
 .callDragon { background: var(--dragon); box-shadow: 0 0 16px rgba(233, 161, 24, 0.5); }
 .callPanda { background: var(--panda); box-shadow: 0 0 16px rgba(233, 228, 242, 0.45); }
-/* the hit call itself — "Dragon 7!" / "Panda 8!" — set large in glowing gold or pearl */
-.callHitRow { min-height: 40px; }
+/* the hit call itself — "Dragon 7!" / "Panda 8!" — set large in glowing gold or pearl, within the bar's height so
+   nothing below it moves */
+.callHitRow { min-height: 32px; }
 .call .callHit {
   font-size: var(--text-2xl);
   font-weight: 800;
   letter-spacing: 0.14em;
-  line-height: 1.15;
+  line-height: 1.1;
   text-transform: uppercase;
   padding-left: 0.14em;
   animation: hitIn 0.7s var(--ease-spring) both;
@@ -736,9 +737,11 @@
 
 .fxRule { font-family: var(--font-body); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ivory-dim); }
 .fxPayout { font-family: var(--font-body); font-size: var(--text-sm); font-weight: 500; letter-spacing: 0.04em; color: var(--ivory); font-variant-numeric: tabular-nums; }
+/* a long line wraps between its parts, never inside one */
+.fxPart { display: inline-block; white-space: nowrap; }
 .fxWon { color: var(--win); font-weight: 700; }
 .fxNoBet { color: var(--ivory-dim); }
-.fxSep { color: var(--ivory-muted); }
+.fxSep { color: var(--ivory-muted); font-weight: 500; }
 
 /* phones: a tighter plaque that fits a 380px felt */
 .fxPhone .fxBanner { gap: 4px; max-width: calc(100% - 20px); padding: 12px 18px 12px; border-radius: 16px; }
