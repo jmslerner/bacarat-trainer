@@ -175,7 +175,11 @@ class SoundEngine {
     if (!this.master) return;
     const t0 = ctx.currentTime + (spec.at ?? 0);
     const src = ctx.createBufferSource();
-    src.buffer = this.noise(ctx);
+    const buffer = this.noise(ctx);
+    src.buffer = buffer;
+    // A random start inside the noise, but never so late that the buffer runs out before the burst has faded: the
+    // source would stop dead mid-envelope (an audible click — the riser's swell is nearly as long as the buffer).
+    const room = Number.isFinite(buffer.duration) ? Math.max(0, buffer.duration - spec.dur - 0.05) : 0.5;
     const g = ctx.createGain();
     const peak = spec.gain ?? 0.3;
     const attack = spec.attack ?? 0.003;
@@ -194,7 +198,7 @@ class SoundEngine {
     }
     node.connect(g);
     g.connect(this.master);
-    src.start(t0, Math.random() * 0.5);
+    src.start(t0, Math.random() * Math.min(0.5, room));
     src.stop(t0 + spec.dur + 0.02);
   }
 

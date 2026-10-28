@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_RULES, RULE_PRESETS, dealFromValues, settleBets, type Bets, type HandResult, type HandSettlement, type ShoeInfo, type TableRules } from '@/engine';
-import { autoPauseMs, buildCelebration, buildHandTimeline, buildShuffleTimeline, celebrationHoldMs, dealDurationMs, describeSettlement, layoutFromBets, revealMs, TIMING } from './timeline';
+import { autoPauseMs, buildCelebration, buildHandTimeline, buildShuffleTimeline, celebrationHoldMs, dealDurationMs, describeSettlement, faceDownTip, layoutFromBets, revealMs, TIMING } from './timeline';
 import type { Frame } from './types';
 
 const shoeInfo: ShoeInfo = {
@@ -124,7 +124,7 @@ describe('the Dragon 7 / Panda 8 moment', () => {
     expect(bonus.sound).toBe('dragon7');
     expect(bonus.keySound).toBeFalsy();
     expect(bonus.hand).toMatchObject({ hit: 'dragon7', dragon7: true, outcome: 'banker', bankerTotal: 7 });
-    expect(bonus.celebrate).toMatchObject({ kind: 'dragon7', side: 'banker', pays: 40, won: 200, hadBet: true, bankerPush: true, holdMs: 2600 });
+    expect(bonus.celebrate).toMatchObject({ kind: 'dragon7', side: 'banker', pays: 40, won: 200, offered: true, hadBet: true, bankerPush: true, holdMs: 2600 });
     const settled = frames.find((f) => f.event === 'settled')!;
     expect(settled.at - bonus.at).toBe(2600);
     expect(settled.at - bonus.at).toBeGreaterThan(650 * TIMING.bonus);
@@ -178,6 +178,23 @@ describe('the Dragon 7 / Panda 8 moment', () => {
     expect(fast.filter((f) => f.sound === 'deal')).toHaveLength(6);
   });
 
+  it('with beginner tips on, the tip never names the face-down card before it turns', () => {
+    const frames = buildHandTimeline({ result: dragon, settlement: dragonSettlement, rules: DEFAULT_RULES, bets: dragonBets, stacks: {}, bankrollBefore: 1000, bankrollAfter: 1000 + dragonSettlement.net, base: 650, tips: true, newShoe: null });
+    const riser = frames.find((f) => f.sound === 'riser')!;
+    const card = dragon.bankerCards[2];
+    expect(riser.hand!.tip).toBe(faceDownTip('banker'));
+    expect(riser.hand!.tip).not.toMatch(/→|counts/);
+    // The flip brings the real explanation: the card, its value and the new total.
+    const flip = frames.find((f) => f.at === riser.at + 1040)!;
+    expect(flip.hand!.tip).toMatch(/^Banker’s third card is 3. \(3 counts 3\): 4 \+ 3 → 7\./);
+    expect(card.rank).toBe('3');
+    // An ordinary third card (the Player's here) is explained as it lands.
+    const p3 = frames.find((f) => f.hand?.playerCards.length === 3)!;
+    expect(p3.hand!.tip).toMatch(/^Player’s third card is 2/);
+    // Tips off: no tip at all, face down or not.
+    expect(build(dragon, dragonBets, dragonSettlement, 650).find((f) => f.sound === 'riser')!.hand!.tip).toBeNull();
+  });
+
   it('a Panda 8 celebrates on the Player side with the chime cascade, its own payout and no Banker push', () => {
     const bets: Bets = { player: 25, panda8: 5, banker: 10 };
     const settlement = settleBets(bets, panda, DEFAULT_RULES);
@@ -208,7 +225,12 @@ describe('the Dragon 7 / Panda 8 moment', () => {
     const frames = build(plain, { banker: 50 }, settleBets({ banker: 50 }, plain, commission), 650, commission);
     expect(frames.some((f) => f.celebrate)).toBe(false);
     expect(frames.some((f) => f.sound === 'riser')).toBe(false);
-    expect(buildCelebration({ result: panda, settlement: settleBets({}, panda, DEFAULT_RULES), rules: DEFAULT_RULES, bets: {}, holdMs: 1200 })).toMatchObject({ kind: 'panda8', pays: 25, won: 0, hadBet: false, holdMs: 1200 });
+    expect(buildCelebration({ result: panda, settlement: settleBets({}, panda, DEFAULT_RULES), rules: DEFAULT_RULES, bets: {}, holdMs: 1200 })).toMatchObject({ kind: 'panda8', pays: 25, won: 0, offered: true, hadBet: false, holdMs: 1200 });
+    // An EZ table with the Dragon 7 bet switched off still calls the Dragon 7 (the Banker push): a moment without a bet.
+    const noSide: TableRules = { ...DEFAULT_RULES, sideBets: { ...DEFAULT_RULES.sideBets, dragon7: false } };
+    const ez = dealFromValues([3, 1, 2], [4, 0, 3], noSide);
+    expect(ez.steps.some((s) => s.type === 'bonus' && s.kind === 'dragon7')).toBe(true);
+    expect(buildCelebration({ result: ez, settlement: settleBets({ banker: 50 }, ez, noSide), rules: noSide, bets: { banker: 50 }, holdMs: 2600 })).toMatchObject({ kind: 'dragon7', offered: false, hadBet: false, won: 0, bankerPush: true });
   });
 
   it('pairs and naturals keep the plain bonus sparkle and never celebrate', () => {

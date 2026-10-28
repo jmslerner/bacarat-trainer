@@ -47,6 +47,7 @@ export interface FeltProps {
 
 export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, revealMs = 0, celebration = null, layout, liveBets, liveStacks, selectedChip, betting, showTips, commission, phone, tablet, onAdd, onRemove }: FeltProps): ReactNode {
   const shoeRef = useRef<HTMLDivElement>(null);
+  const handsRef = useRef<HTMLDivElement>(null);
   const cardSize: CardSize = phone ? 'sm' : tablet ? 'md' : 'lg';
   const chipSize = phone ? 30 : tablet ? 36 : 42;
   const settling = phase === 'settling' || phase === 'settled';
@@ -97,7 +98,7 @@ export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, reve
         </div>
       )}
 
-      <div className={styles.hands}>
+      <div ref={handsRef} className={styles.hands}>
         <HandArea side="player" cards={hand.playerCards} total={hand.playerTotal} natural={hand.natural === 'player' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('player')} pair={hand.playerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} reveal={hand.reveal === 'player'} revealMs={revealMs} />
         <HandArea side="banker" cards={hand.bankerCards} total={hand.bankerTotal} natural={hand.natural === 'banker' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('banker')} pair={hand.bankerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} reveal={hand.reveal === 'banker'} revealMs={revealMs} />
         <ShoeView ref={shoeRef} shoe={shoe} rules={rules} shuffle={shuffle} compact={phone} />
@@ -135,7 +136,7 @@ export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, reve
         {arcRow.map((def) => renderSpot(def, false))}
       </div>
 
-      <BonusCelebration celebration={celebration} phone={phone} />
+      <BonusCelebration celebration={celebration} phone={phone} cardsRef={handsRef} />
     </div>
   );
 }

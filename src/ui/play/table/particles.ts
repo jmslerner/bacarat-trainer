@@ -4,6 +4,8 @@
  *  - Dragon 7: embers rising from the bottom of the felt and from the banner, additive blending, warm palette;
  *  - Panda 8: a confetti burst from the banner in black, white and bamboo green, with gravity and flutter.
  *
+ * `originY` is where the banner sits, as a fraction of the felt's height (it moves with the cards and the scroll).
+ *
  * `runParticles` starts the animation and returns a stop function; it is a no-op without a 2D context (jsdom,
  * reduced-motion callers never start it). The simulation steps are plain functions so they can be tested.
  */
@@ -42,11 +44,11 @@ export const CONFETTI_COLORS: readonly string[] = ['#161616', '#ffffff', '#2fb36
 
 type Rng = () => number;
 
-export function spawnEmber(w: number, h: number, rng: Rng = Math.random): Ember {
-  // Two sources: the whole lower edge of the felt, and the banner's glow around the centre.
+export function spawnEmber(w: number, h: number, rng: Rng = Math.random, originY = 0.5): Ember {
+  // Two sources: the whole lower edge of the felt, and the banner's glow around its centre.
   const fromBanner = rng() < 0.35;
   const x = fromBanner ? w * (0.32 + rng() * 0.36) : w * (0.04 + rng() * 0.92);
-  const y = fromBanner ? h * (0.42 + rng() * 0.16) : h * (0.88 + rng() * 0.12);
+  const y = fromBanner ? h * (originY - 0.08 + rng() * 0.16) : h * (0.88 + rng() * 0.12);
   return {
     x,
     y,
@@ -61,12 +63,12 @@ export function spawnEmber(w: number, h: number, rng: Rng = Math.random): Ember 
   };
 }
 
-export function spawnConfetti(w: number, h: number, rng: Rng = Math.random): Confetti {
+export function spawnConfetti(w: number, h: number, rng: Rng = Math.random, originY = 0.42): Confetti {
   const angle = -Math.PI / 2 + (rng() - 0.5) * Math.PI * 1.25;
   const speed = 140 + rng() * 380;
   return {
     x: w * 0.5 + (rng() - 0.5) * w * 0.12,
-    y: h * 0.42,
+    y: h * originY,
     vx: Math.cos(angle) * speed,
     vy: Math.sin(angle) * speed - 60,
     w: 5 + rng() * 6,
@@ -138,7 +140,7 @@ export interface ParticleRun {
  * Starts the layer for `kind`, spawning for the first part of `durationMs` and letting the last particles die
  * out after it. Returns the stop function (also used on unmount).
  */
-export function runParticles(canvas: HTMLCanvasElement, kind: BonusKind, durationMs: number): () => void {
+export function runParticles(canvas: HTMLCanvasElement, kind: BonusKind, durationMs: number, originY = 0.46): () => void {
   let ctx: CanvasRenderingContext2D | null = null;
   try {
     ctx = canvas.getContext('2d');
@@ -185,7 +187,7 @@ export function runParticles(canvas: HTMLCanvasElement, kind: BonusKind, duratio
       if (elapsed < spawnUntil) {
         spawnDebt += dt * 95;
         while (spawnDebt >= 1 && embers.length < 220) {
-          embers.push(spawnEmber(w, h));
+          embers.push(spawnEmber(w, h, Math.random, originY));
           spawnDebt -= 1;
         }
       }
@@ -206,7 +208,8 @@ export function runParticles(canvas: HTMLCanvasElement, kind: BonusKind, duratio
     } else {
       while (bursts < burstAt.length && elapsed >= burstAt[bursts]) {
         const n = bursts === 0 ? 110 : 70;
-        for (let i = 0; i < n; i++) confetti.push(spawnConfetti(w, h));
+        // The burst leaves from the banner's top edge region, a little above its centre.
+        for (let i = 0; i < n; i++) confetti.push(spawnConfetti(w, h, Math.random, originY - 0.04));
         bursts += 1;
       }
       for (let i = confetti.length - 1; i >= 0; i--) {

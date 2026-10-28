@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { animReducer, initialAnimState } from './useTableAnimation';
 import { emptyHand, type Celebration } from './types';
 
-const celebration: Celebration = { id: 'dragon7-1', kind: 'dragon7', side: 'banker', pays: 40, won: 200, hadBet: true, bankerPush: true, holdMs: 2600 };
+const celebration: Celebration = { id: 'dragon7-1', kind: 'dragon7', side: 'banker', pays: 40, won: 200, offered: true, hadBet: true, bankerPush: true, holdMs: 2600 };
 
 describe('animReducer — the Dragon 7 / Panda 8 moment', () => {
   it('a frame shows the celebration, the next deal, a reset and a skip clear it, the end of the timeline keeps it', () => {

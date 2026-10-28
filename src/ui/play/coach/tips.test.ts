@@ -37,6 +37,10 @@ describe('explainSteps', () => {
     expect(d7.find((r) => r.step.type === 'stand')!.tip).toBe('Player has 6: with 6 or 7 the Player stands.');
     expect(d7.find((r) => r.step.type === 'draw')!.tip).toBe('The Player stood, so Banker follows the Player rule: 3 is 0–5, so Banker draws.');
     expect(d7.find((r) => r.step.type === 'bonus')!.tip).toMatch(/Dragon 7\. Dragon 7 bets pay 40:1 and the Banker bet is a push/);
+    // An EZ table with the Dragon 7 bet switched off still calls the Dragon 7 (the Banker push) but has no bet to pay.
+    const noSide = { ...DEFAULT_RULES, sideBets: { ...DEFAULT_RULES.sideBets, dragon7: false } };
+    const d7Off = tipsByType([6, 0], [3, 0, 4], noSide).find((r) => r.step.type === 'bonus')!.tip;
+    expect(d7Off).toBe('Banker won with a THREE-card 7 — the Dragon 7. The Banker bet is a push: that push is how EZ Baccarat replaces the commission.');
   });
 
   it('explains naturals, ties, pairs and the cut card, and adapts to the commission rule', () => {

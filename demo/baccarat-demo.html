@@ -245,8 +245,25 @@ select, input[type="number"] {
 .road svg { display: block; }
 .road.wide { grid-column: span 2; }
 .counts { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; }
-.counts span { padding: 2px 8px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.counts > span { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .counts .p { color: #8fbcff; } .counts .b { color: #ff9aa8; } .counts .t { color: #5bd38f; }
+.counts .d7 { color: #ffd166; border-color: var(--gold-dim); } .counts .p8 { color: #e8ffe8; border-color: #2fb36a; }
+.glyph { width: 14px; height: 14px; flex: none; display: inline-block; vertical-align: -3px; margin-right: 4px; }
+.counts > span.bump { animation: countBump .7s ease-out 3; }
+@keyframes countBump { 35% { transform: scale(1.14); border-color: var(--gold); box-shadow: 0 0 16px rgba(212,175,55,.85); } }
+/* bonus history: this shoe's Dragon 7 / Panda 8 hits in order (scrolls inside its own strip), then the drought since each */
+.bonus-hist { display: grid; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--ivory-dim); min-width: 0; }
+.bonus-hist .bh-list { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; white-space: nowrap; padding-bottom: 3px; scrollbar-width: thin; }
+.bonus-hist .bh-hit { display: inline-flex; align-items: center; padding: 1px 8px 1px 4px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ivory); font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
+.bonus-hist .bh-hit.d7 { border-color: var(--gold-dim); color: #ffd166; } .bonus-hist .bh-hit.p8 { border-color: #2fb36a; color: #e8ffe8; }
+.bonus-hist .bh-hit.new { animation: countBump .7s ease-out 3; }
+.bonus-hist .bh-sep { color: var(--ivory-dim); opacity: .5; flex: none; }
+.bonus-hist .bh-empty { font-style: italic; white-space: nowrap; }
+.bonus-hist .bh-since-row { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.bonus-hist .bh-since b { color: var(--ivory); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bonus-hist .bh-since i { font-style: normal; opacity: .75; }
+.road .bead-pulse { transform-box: fill-box; transform-origin: center; animation: beadPulse .85s ease-out 3; opacity: 0; }
+@keyframes beadPulse { 0% { transform: scale(.7); opacity: .95; } 100% { transform: scale(2); opacity: 0; } }
 .ask { display: flex; gap: 6px; align-items: center; font-size: 12px; margin-top: 8px; flex-wrap: wrap; }
 .ask button { padding: 3px 10px; font-size: 12px; }
 .ask .dots { display: inline-flex; gap: 6px; align-items: center; }
@@ -311,25 +328,57 @@ table.stat tr:last-child td { border-bottom: 0; }
 .hit-banner.dragon { border-color: #ff8a65; box-shadow: 0 0 0 6px rgba(215,38,61,.2), 0 0 70px rgba(255,80,40,.45), 0 20px 60px rgba(0,0,0,.6); }
 .hit-banner.panda { border-color: #ececec; box-shadow: 0 0 0 6px rgba(47,179,106,.22), 0 0 70px rgba(47,179,106,.35), 0 20px 60px rgba(0,0,0,.6); }
 .hit-banner.out { animation: bannerOut .4s ease-in both; }
-.hit-banner .medal { width: 96px; height: 96px; flex: none; filter: drop-shadow(0 0 12px rgba(212,175,55,.55)); animation: medalPulse 1.6s ease-in-out infinite; }
+.hit-banner .medal { width: 96px; height: 96px; flex: none; filter: drop-shadow(0 0 12px rgba(212,175,55,.55)); animation: medalDrop .8s cubic-bezier(.25,.7,.3,1) both, medalPulse 1.6s ease-in-out .95s infinite; }
 .hit-banner.panda .medal { filter: drop-shadow(0 0 12px rgba(255,255,255,.45)); }
 .hit-banner .medal svg { width: 100%; height: 100%; display: block; }
 .hit-banner .text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .hit-banner .eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--ivory-dim); }
 .hit-banner .title {
+  --title-grad: linear-gradient(180deg, #fff3c4 0%, var(--gold) 55%, #8a6a14 100%);
   font-family: var(--font-display); font-size: clamp(26px, 6vw, 44px); font-weight: 700; letter-spacing: .08em; line-height: 1.05; white-space: nowrap;
-  background: linear-gradient(180deg, #fff3c4 0%, var(--gold) 55%, #8a6a14 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  background: linear-gradient(105deg, rgba(255,255,255,0) 42%, rgba(255,255,255,.95) 50%, rgba(255,255,255,0) 58%) no-repeat, var(--title-grad);
+  background-size: 240% 100%, 100% 100%; background-position: 250% 0, 0 0;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: titleShine 1.4s ease-in-out .5s 2;
 }
-.hit-banner.panda .title { background: linear-gradient(180deg, #ffffff 0%, #dedede 55%, #8c8c8c 100%); -webkit-background-clip: text; background-clip: text; }
+.hit-banner.panda .title { --title-grad: linear-gradient(180deg, #ffffff 0%, #dedede 55%, #8c8c8c 100%); }
+@keyframes titleShine { to { background-position: -150% 0, 0 0; } }
 .hit-banner .pay { font-size: 14px; color: var(--ivory); letter-spacing: .05em; }
 .hit-banner .pay b { color: var(--win); font-variant-numeric: tabular-nums; }
 @keyframes bannerIn { from { transform: translate(-50%, -50%) scale(.45); opacity: 0; } }
 @keyframes bannerOut { to { transform: translate(-50%, -62%) scale(.9); opacity: 0; } }
 @keyframes medalPulse { 50% { transform: scale(1.07) rotate(-4deg); } }
+@keyframes medalDrop { 0% { transform: translateY(-160px) scale(.5) rotate(-25deg); opacity: 0; } 48% { transform: translateY(0) scale(1.1) rotate(2deg); opacity: 1; } 66% { transform: translateY(-18px) scale(1) rotate(-2deg); } 82% { transform: translateY(0) scale(1.05); } 100% { transform: none; } }
+/* suspense reveal: at normal and slow speed the deciding card of a hit lands face down, glows, then turns over */
+.card.third.suspense { animation: suspenseFlip var(--flip, 1.5s) cubic-bezier(.3,.5,.3,1) both; }
+.card.third.suspense::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; border: 3px solid #fbf8f1; background: repeating-linear-gradient(45deg, #8e2b2b 0 3px, #b23a3a 3px 6px); animation: suspenseBack var(--flip, 1.5s) linear both; }
+@keyframes suspenseFlip {
+  0% { transform: translate(140px, -90px) scale(.6) rotate(90deg); opacity: 0; }
+  20% { transform: rotate(90deg) scaleX(1); opacity: 1; box-shadow: 0 3px 8px rgba(0,0,0,.45); }
+  48% { transform: rotate(90deg) scaleX(1); box-shadow: 0 0 0 3px var(--gold), 0 0 36px 14px rgba(212,175,55,.95); }
+  62% { transform: rotate(90deg) scaleX(0); box-shadow: 0 0 0 3px var(--gold), 0 0 24px 8px rgba(212,175,55,.7); }
+  76% { transform: rotate(90deg) scaleX(1); box-shadow: 0 0 0 3px var(--gold), 0 0 30px 10px rgba(212,175,55,.85); }
+  100% { transform: rotate(90deg); box-shadow: 0 0 0 2px var(--gold), 0 0 18px 5px rgba(212,175,55,.55); }
+}
+@keyframes suspenseBack { 0%, 61.9% { opacity: 1; } 62%, 100% { opacity: 0; } }
 .spot.hit { animation: spotPulse .9s ease-in-out 4; border-color: var(--gold) !important; }
 @keyframes spotPulse { 50% { box-shadow: 0 0 0 6px rgba(212,175,55,.5), 0 0 34px rgba(212,175,55,.7); } }
-.hand.hit .card { animation: cardGlow 1.1s ease-in-out 3; }
-@keyframes cardGlow { 50% { box-shadow: 0 0 0 3px var(--gold), 0 0 26px 8px rgba(212,175,55,.8); } }
+.spot.hit.won { animation: spotPulseWin 1s ease-in-out 5; }
+@keyframes spotPulseWin { 50% { box-shadow: 0 0 0 8px rgba(212,175,55,.5), 0 0 52px 12px rgba(212,175,55,.9); transform: scale(1.04); } }
+.spot.hit.won .res.win { animation: resFlash .5s ease-in-out 6; }
+@keyframes resFlash { 50% { background: var(--gold); color: #1a1200; transform: scale(1.15); } }
+/* the winning hand: all three cards glow (the third brightest) and its total flashes; gold for a Dragon 7, pearl for a Panda 8.
+   Each card keeps its deal-in (or suspense) animation first in the list: dropping it while .hit is on would make it replay from the start when the celebration clears. */
+.hand.hit { --hit-rgb: 212,175,55; }
+.hand.hit.panda { --hit-rgb: 240,240,240; }
+.hand.hit .card { animation: dealIn .35s ease-out both, cardGlow 1.1s ease-in-out 3; }
+.hand.hit .card:nth-child(2) { animation-delay: 0s, .12s; }
+.hand.hit .card.third { animation: dealInThird .35s ease-out both, cardGlowStrong 1.1s ease-in-out .24s 3; }
+.hand.hit .card.third.suspense { animation: suspenseFlip var(--flip, 1.5s) cubic-bezier(.3,.5,.3,1) both, cardGlowStrong 1.1s ease-in-out .24s 3; }
+@keyframes cardGlow { 50% { box-shadow: 0 0 0 2px rgba(var(--hit-rgb), .9), 0 0 18px 5px rgba(var(--hit-rgb), .55); } }
+@keyframes cardGlowStrong { 50% { box-shadow: 0 0 0 3px rgba(var(--hit-rgb), 1), 0 0 36px 14px rgba(var(--hit-rgb), .95); transform: rotate(90deg) scale(1.06); } }
+.hand.hit .total { animation: totalFlash .7s ease-in-out 4; }
+@keyframes totalFlash { 50% { color: #ffd166; text-shadow: 0 0 16px rgba(var(--hit-rgb), 1); transform: scale(1.3); } }
 .bankroll-pill.jackpot { animation: pillPulse .9s ease-in-out 4; }
 @keyframes pillPulse { 50% { box-shadow: 0 0 0 4px rgba(212,175,55,.55); transform: scale(1.05); } }
 .spot .name { display: inline-flex; align-items: center; gap: 6px; }
@@ -339,7 +388,11 @@ table.stat tr:last-child td { border-bottom: 0; }
 .history .tag.d7 { background: #5a0f1a; color: #ffd166; border: 1px solid #d7263d; }
 .history .tag.p8 { background: #141414; color: #fff; border: 1px solid #2fb36a; }
 @media (max-width: 560px) { .hit-banner { gap: 12px; padding: 12px 16px; } .hit-banner .medal { width: 64px; height: 64px; } }
-@media (prefers-reduced-motion: reduce) { .hit-banner, .hit-banner .medal, .spot.hit, .hand.hit .card, .felt::after, .bankroll-pill.jackpot { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .hit-banner, .hit-banner .medal, .hit-banner .title, .spot.hit, .spot.hit.won .res.win, .hand.hit .card, .hand.hit .total, .felt::after, .bankroll-pill.jackpot, .card.third.suspense, .card.third.suspense::before, .road .bead-pulse, .counts > span.bump, .bonus-hist .bh-hit.new { animation: none !important; }
+  .card.third.suspense::before { display: none; }
+  .road .bead-pulse { opacity: 0; }
+}
 
 /* ---------- glossary tooltips ---------- */
 .term { text-decoration: underline dotted rgba(212,175,55,.7); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: help; }
@@ -472,6 +525,7 @@ body:focus { outline: none; }
           <div class="road"><div class="lbl"><span>Cockroach pig</span><span>slashes</span></div><div class="scroll" id="cockroach"></div></div>
         </div>
         <div class="counts" id="counts"></div>
+        <div class="bonus-hist" id="bonus-hist"></div>
         <div class="ask">
           <span>Ask road:</span>
           <button class="btn" id="askP">P?</button><button class="btn" id="askB">B?</button>
@@ -806,10 +860,11 @@ function celebrate(kind, line) {
   banner.innerHTML = '<div class="medal">' + MEDALS[kind] + '</div><div class="text"><div class="eyebrow">' + (dragon ? 'Banker wins with a three-card 7' : 'Player wins with a three-card 8') + '</div><div class="title">' + (dragon ? 'DRAGON 7' : 'PANDA 8') + '</div><div class="pay">' + pay + '</div></div>';
   fx.appendChild(banner);
   felt.classList.add(dragon ? 'flash-dragon' : 'flash-panda');
-  document.querySelector('.spot[data-bet="' + kind + '"]').classList.add('hit');
-  document.querySelector('.hand.' + (dragon ? 'banker' : 'player')).classList.add('hit');
-  if (line && line.result === 'win') $('bankroll').parentElement.classList.add('jackpot');
-  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) particles(kind);
+  const won = !!(line && line.result === 'win');
+  const spot = document.querySelector('.spot[data-bet="' + kind + '"]'); spot.classList.add('hit'); if (won) spot.classList.add('won');
+  document.querySelector('.hand.' + (dragon ? 'banker' : 'player')).classList.add('hit', dragon ? 'dragon' : 'panda');
+  if (won) $('bankroll').parentElement.classList.add('jackpot');
+  if (!reducedMotion()) particles(kind);
   fxTimer = setTimeout(() => { banner.classList.add('out'); fxTimer = setTimeout(clearCelebration, 420); }, 4500);
 }
 function clearCelebration() {
@@ -817,9 +872,12 @@ function clearCelebration() {
   const fx = $('fx'); fx.querySelectorAll('.hit-banner').forEach((b) => b.remove());
   const canvas = $('fx-canvas'); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
   fx.parentElement.classList.remove('flash-dragon', 'flash-panda');
-  document.querySelectorAll('.spot.hit, .hand.hit').forEach((e) => e.classList.remove('hit'));
+  document.querySelectorAll('.spot.hit, .hand.hit').forEach((e) => e.classList.remove('hit', 'won', 'dragon', 'panda'));
   $('bankroll').parentElement.classList.remove('jackpot');
+  if (bankTick) { cancelAnimationFrame(bankTick); bankTick = null; $('bankroll').textContent = fmt$(S.bankroll); }
 }
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const BONUS_ODDS = { dragon7: 44, panda8: 29 }; // about 1 hand in 44 / 1 in 29 (2.25% and 3.45%, 8 decks)
 function particles(kind) {
   const canvas = $('fx-canvas'), rect = canvas.parentElement.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -946,6 +1004,7 @@ const S = {
   shoe: null, shoeNumber: 0, results: [], seen: [], handsInShoe: 0, lastHandNext: false, shoeNet: 0, shoeWagered: 0,
   history: [], selectedChip: 25, speed: 'normal', settledDisplay: false, lastPlacedBet: null, auto: false, animating: false, seed: (Math.random() * 2 ** 31) | 0, rand: null,
   stats: { hands: 0, player: 0, banker: 0, tie: 0, dragon7: 0, panda8: 0, pairs: 0, wagered: 0, net: 0, commission: 0, peak: 1000, low: 1000, biggestWin: 0 },
+  drought: { dragon7: 0, panda8: 0 }, roadPulseKey: '',
 };
 S.rand = mulberry32(S.seed);
 
@@ -1001,6 +1060,7 @@ function deal() {
   showErr('');
   if (S.shoe.remaining() < 6) newShoe(false);
   clearCelebration();
+  S.dealSerial = (S.dealSerial || 0) + 1;
   const bets = Object.assign({}, S.bets);
   const result = dealHand(S.shoe, S.handsInShoe + 1, true);
   const settlement = settle(bets, result, S.rules);
@@ -1014,11 +1074,15 @@ function deal() {
   document.querySelectorAll('.spot .res').forEach((e) => e.remove());
   let i = 0;
   const steps = result.steps;
+  // At normal and slow speed the deciding card of a Dragon 7 or Panda 8 hand (the last card dealt) lands face down, glows, then turns over.
+  const hitKind = result.dragon7 ? 'dragon7' : result.panda8 ? 'panda8' : null;
+  const suspenseMs = hitKind && delay >= SPEEDS.normal && !reducedMotion() ? Math.round(delay * 2.3) : 0;
+  let lastDeal = -1; steps.forEach((s, k) => { if (s.type === 'deal') lastDeal = k; });
   const run = () => {
     if (i >= steps.length) return finish();
-    const st = steps[i++];
-    applyStep(st);
-    const d = st.type === 'deal' ? delay : st.type === 'result' || st.type === 'bonus' ? delay * 1.4 : st.type === 'show' ? delay * 0.9 : delay * 0.6;
+    const st = steps[i], suspense = suspenseMs > 0 && i === lastDeal; i++;
+    applyStep(st, suspense ? suspenseMs : 0);
+    const d = suspense ? suspenseMs + 180 : st.type === 'deal' ? delay : st.type === 'result' || st.type === 'bonus' ? delay * 1.4 : st.type === 'show' ? delay * 0.9 : delay * 0.6;
     if (delay === 0) run(); else setTimeout(run, d);
   };
   const finish = () => {
@@ -1032,8 +1096,10 @@ function deal() {
       if (line.result === 'win') area.insertAdjacentHTML('beforeend', chipStackHTML(line.net, 'stack win', false));
       else if (line.result === 'lose') { const st = area.querySelector('.stack'); if (st) st.classList.add('swept'); }
     }
+    const bankBefore = S.bankroll;
     S.bankroll += settlement.wagered + settlement.net;
     const st = S.stats; st.hands++; st[result.outcome]++; if (result.dragon7) st.dragon7++; if (result.panda8) st.panda8++; if (result.playerPair) st.pairs++; if (result.bankerPair) st.pairs++;
+    S.drought.dragon7 = result.dragon7 ? 0 : S.drought.dragon7 + 1; S.drought.panda8 = result.panda8 ? 0 : S.drought.panda8 + 1;
     st.wagered += settlement.wagered; st.net += settlement.net; st.commission += settlement.commission; st.peak = Math.max(st.peak, S.bankroll); st.low = Math.min(st.low, S.bankroll); st.biggestWin = Math.max(st.biggestWin, settlement.net);
     S.results.push(result); S.handsInShoe++; S.seen.push(...result.playerCards, ...result.bankerCards);
     S.shoeNet += settlement.net; S.shoeWagered += settlement.wagered;
@@ -1048,6 +1114,7 @@ function deal() {
     else if (result.cutCardDrawn) { S.lastHandNext = true; $('banner').textContent = 'Cut card is out — the next hand is the last of this shoe'; }
     S.animating = false;
     renderAll();
+    if (hitKind && settlement.net > 0 && delay > 0) renderBankroll(bankBefore); // the payout counts up into the pill
     if (shoeEnded) {
       setTimeout(() => { newShoe(true); renderAll(); if (S.auto) autoNext(); }, delay === 0 ? 0 : 1200);
     } else if (S.auto) autoNext();
@@ -1063,17 +1130,19 @@ function autoNext() {
   const delay = SPEEDS[S.speed];
   setTimeout(deal, delay === 0 ? 0 : 900);
 }
-function applyStep(st) {
+function applyStep(st, suspenseMs) {
   if (st.type === 'deal') {
     const el = document.createElement('div');
     const red = st.card.suit === 'H' || st.card.suit === 'D';
     el.className = 'card' + (red ? ' red' : '') + (st.index === 2 ? ' third' : '');
+    if (suspenseMs && st.index === 2) { el.classList.add('suspense'); el.style.setProperty('--flip', suspenseMs + 'ms'); }
     const r = st.card.rank === 'T' ? '10' : st.card.rank;
     el.innerHTML = '<span class="corner">' + r + '<small>' + SUIT_SYM[st.card.suit] + '</small></span><span class="pip">' + SUIT_SYM[st.card.suit] + '</span>';
     el.setAttribute('aria-label', r + ' of ' + { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' }[st.card.suit]);
     $(st.to === 'player' ? 'p-cards' : 'b-cards').appendChild(el);
-    if (st.index === 2) { $('p-total').textContent = st.pt; $('b-total').textContent = st.bt; }
-    say(st.msg);
+    if (st.index === 2 && suspenseMs) { const serial = S.dealSerial; setTimeout(() => { if (S.dealSerial === serial && S.animating) { $('p-total').textContent = st.pt; $('b-total').textContent = st.bt; } }, Math.round(suspenseMs * 0.62)); }
+    else if (st.index === 2) { $('p-total').textContent = st.pt; $('b-total').textContent = st.bt; }
+    say(st.msg + (suspenseMs ? '\u2026' : ''));
   } else if (st.type === 'show') { $('p-total').textContent = st.pt; $('b-total').textContent = st.bt; say(st.msg); }
   else if (st.type === 'result') { $('p-total').textContent = st.pt; $('b-total').textContent = st.bt; say(st.msg); }
   else if (st.type === 'bonus') { say(st.msg, true); if (st.kind === 'dragon7' || st.kind === 'panda8') celebrate(st.kind, S.currentSettlement && S.currentSettlement.lines.find((l) => l.bet === st.kind)); }
@@ -1083,9 +1152,20 @@ function applyStep(st) {
 }
 
 // ---------- rendering ----------
-function renderBankroll() {
-  const el = $('bankroll'); el.textContent = fmt$(S.bankroll);
+let bankTick = null;
+function renderBankroll(animateFrom) {
+  const el = $('bankroll');
+  if (bankTick) { cancelAnimationFrame(bankTick); bankTick = null; }
   el.className = S.bankroll > S.startBankroll ? 'up' : S.bankroll < S.startBankroll ? 'down' : '';
+  if (animateFrom === undefined || animateFrom === S.bankroll || reducedMotion()) { el.textContent = fmt$(S.bankroll); return; }
+  const from = animateFrom, to = S.bankroll, t0 = performance.now(), ms = 900;
+  el.textContent = fmt$(from);
+  const tick = (now) => {
+    const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt$(from + (to - from) * e);
+    if (k < 1) bankTick = requestAnimationFrame(tick); else { bankTick = null; el.textContent = fmt$(to); }
+  };
+  bankTick = requestAnimationFrame(tick);
 }
 function chipBreakdown(amount) { const out = []; let rest = Math.round(amount); for (const v of [...S.table.chips].reverse()) { while (rest >= v && out.length < 8) { out.push(v); rest -= v; } } if (!out.length) out.push(S.table.chips[0]); return out; }
 const fmtMoney = (n) => '$' + (Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2));
@@ -1130,25 +1210,70 @@ function renderTray() {
     tray.appendChild(b);
   });
 }
+// Scoreboard medallions. Gradient ids carry a suffix so the bead plate, the big road and every inline glyph own their defs.
+const hitKindOf = (r) => r ? (r.dragon7 ? 'dragon7' : r.panda8 ? 'panda8' : null) : null;
+function roadDefs(sfx) {
+  return '<defs><linearGradient id="gold-' + sfx + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset=".55" stop-color="#d4af37"/><stop offset="1" stop-color="#9a7c22"/></linearGradient>' +
+    '<radialGradient id="dhalo-' + sfx + '"><stop offset=".5" stop-color="#ffd166" stop-opacity=".6"/><stop offset="1" stop-color="#ffd166" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="phalo-' + sfx + '"><stop offset=".5" stop-color="#ffffff" stop-opacity=".45"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs>';
+}
+// A Dragon 7 bead: gold-ringed medallion, bold gold 7, soft glow. A Panda 8 bead: Player blue inside a pearl ring, bold 8 on a green badge.
+function medallionMark(kind, x, y, sfx) {
+  const f = ' font-family="Cinzel, Times New Roman, serif" font-weight="700" text-anchor="middle"';
+  if (kind === 'dragon7') return '<circle cx="' + x + '" cy="' + y + '" r="9" fill="url(#dhalo-' + sfx + ')"/><circle cx="' + x + '" cy="' + y + '" r="7" fill="#6e1020" stroke="url(#gold-' + sfx + ')" stroke-width="1.8"/><text x="' + x + '" y="' + (y + 3.6) + '"' + f + ' font-size="10" fill="url(#gold-' + sfx + ')">7</text>';
+  return '<circle cx="' + x + '" cy="' + y + '" r="9" fill="url(#phalo-' + sfx + ')"/><circle cx="' + x + '" cy="' + y + '" r="7" fill="var(--player)" stroke="#f4f1ea" stroke-width="1.8"/><circle cx="' + x + '" cy="' + y + '" r="4.6" fill="#2fb36a" stroke="#ffffff" stroke-width=".8"/><text x="' + x + '" y="' + (y + 2.8) + '"' + f + ' font-size="7.5" fill="#fff">8</text>';
+}
+// Big-road corner badge: top-right, clear of the pair dots (top-left, bottom-right) and drawn over the end of any tie slash.
+function badgeMark(kind, x, y, sfx) {
+  const bx = x + 5.2, by = y - 5.2, t = '<text x="' + bx + '" y="' + (by + 2.2) + '" text-anchor="middle" font-size="6" font-weight="700" fill="';
+  if (kind === 'dragon7') return '<g class="mark d7"><circle cx="' + bx + '" cy="' + by + '" r="3.8" fill="url(#gold-' + sfx + ')" stroke="#3a0710" stroke-width=".7"/>' + t + '#3a0710">7</text></g>';
+  return '<g class="mark p8"><circle cx="' + bx + '" cy="' + by + '" r="3.8" fill="#2fb36a" stroke="#ffffff" stroke-width=".9"/>' + t + '#fff">8</text></g>';
+}
+const pulseRing = (x, y, kind) => '<circle class="bead-pulse" cx="' + x + '" cy="' + y + '" r="8" fill="none" stroke="' + (kind === 'dragon7' ? '#ffd166' : '#f4f1ea') + '" stroke-width="1.6"/>';
+const glyphSVG = (kind, sfx) => '<svg class="glyph" viewBox="2 2 16 16" aria-hidden="true">' + roadDefs(sfx) + medallionMark(kind, 10, 10, sfx) + '</svg>';
+function renderBonusHistory(results, pulseKind) {
+  const hits = results.filter((r) => r.dragon7 || r.panda8);
+  const list = hits.length ? hits.map((r, i) => {
+    const d = !!r.dragon7, isNew = pulseKind && i === hits.length - 1;
+    return '<span class="bh-hit ' + (d ? 'd7' : 'p8') + (isNew ? ' new' : '') + '" title="Hand ' + r.handNumber + ': ' + (d ? 'Dragon 7' : 'Panda 8') + '">' + glyphSVG(d ? 'dragon7' : 'panda8', 'h' + i) + (d ? 'D7' : 'P8') + ' #' + r.handNumber + '</span>';
+  }).join('<span class="bh-sep">\u00b7</span>') : '<span class="bh-empty">Shoe ' + S.shoeNumber + ': no Dragon 7 or Panda 8 yet</span>';
+  const since = (kind, label) => {
+    const n = S.drought[kind], odds = ' <i class="no-terms">(about 1 in ' + BONUS_ODDS[kind] + ' expected)</i>';
+    if (!S.stats[kind]) return '<span class="bh-since">No ' + label + ' yet in <b>' + S.stats.hands + ' hand' + (S.stats.hands === 1 ? '' : 's') + '</b>' + odds + '</span>';
+    if (n === 0) return '<span class="bh-since">Last ' + label + ': <b>the hand just dealt</b>' + odds + '</span>';
+    return '<span class="bh-since">Since last ' + label + ': <b>' + n + ' hand' + (n === 1 ? '' : 's') + '</b>' + odds + '</span>';
+  };
+  const el = $('bonus-hist');
+  el.innerHTML = '<div class="bh-list">' + list + '</div><div class="bh-since-row">' + since('dragon7', 'Dragon 7') + since('panda8', 'Panda 8') + '</div>';
+  const l = el.querySelector('.bh-list'); l.scrollLeft = l.scrollWidth;
+}
 function renderRoads() {
   const rows = 6, cs = 18;
   const results = S.results;
   const { cols, leadingTies } = logicalColumns(results);
+  // The newest marker pulses once per new hit hand: the key stops a re-render of the same state from restarting it.
+  const lastHit = hitKindOf(results[results.length - 1]);
+  const pulseKey = S.shoeNumber + ':' + results.length;
+  const pulseKind = lastHit && S.roadPulseKey !== pulseKey ? lastHit : null;
+  S.roadPulseKey = pulseKey;
   // bead plate
   const beadCols = Math.max(Math.ceil(results.length / rows), 12);
-  let svg = svgOpen(beadCols, rows, cs);
+  let svg = svgOpen(beadCols, rows, cs) + roadDefs('bead');
   results.forEach((r, i) => {
     const c = Math.floor(i / rows), rw = i % rows, x = c * cs + cs / 2, y = rw * cs + cs / 2;
     const color = r.outcome === 'player' ? 'var(--player)' : r.outcome === 'banker' ? 'var(--banker)' : 'var(--tie)';
-    svg += '<circle cx="' + x + '" cy="' + y + '" r="7" fill="' + color + '"/><text x="' + x + '" y="' + (y + 3.5) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">' + (r.outcome === 'player' ? 'P' : r.outcome === 'banker' ? 'B' : 'T') + '</text>';
+    const kind = hitKindOf(r);
+    if (kind) svg += '<g class="bead-medal ' + (kind === 'dragon7' ? 'd7' : 'p8') + '" data-hand="' + r.handNumber + '"><title>Hand ' + r.handNumber + ': ' + (kind === 'dragon7' ? 'Dragon 7' : 'Panda 8') + '</title>' + medallionMark(kind, x, y, 'bead') + '</g>';
+    else svg += '<circle cx="' + x + '" cy="' + y + '" r="7" fill="' + color + '"/><text x="' + x + '" y="' + (y + 3.5) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">' + (r.outcome === 'player' ? 'P' : r.outcome === 'banker' ? 'B' : 'T') + '</text>';
     if (r.playerPair) svg += '<circle cx="' + (x - 6) + '" cy="' + (y - 6) + '" r="2.2" fill="var(--player)" stroke="#fff" stroke-width=".6"/>';
     if (r.bankerPair) svg += '<circle cx="' + (x + 6) + '" cy="' + (y + 6) + '" r="2.2" fill="var(--banker)" stroke="#fff" stroke-width=".6"/>';
+    if (pulseKind && i === results.length - 1) svg += pulseRing(x, y, kind);
   });
-  setRoad('bead', svg + '</svg>');
+  setRoad('bead', svg + '</svg>', Math.ceil(results.length / rows) * cs);
   // big road
   const big = placeColumns(cols, rows);
   const bigCols = Math.max(big.width + 1, 12);
-  svg = svgOpen(bigCols, rows, cs);
+  svg = svgOpen(bigCols, rows, cs) + roadDefs('big');
   if (!big.cells.length && leadingTies) svg += tieMark(cs / 2, cs / 2, leadingTies);
   big.cells.forEach((cell) => {
     const x = cell.col * cs + cs / 2, y = cell.row * cs + cs / 2;
@@ -1158,8 +1283,11 @@ function renderRoads() {
     if (cell.ties || (cell.logicalCol === 0 && cell.logicalRow === 0 && leadingTies)) svg += tieMark(x, y, cell.ties + (cell.logicalCol === 0 && cell.logicalRow === 0 ? leadingTies : 0));
     if (cell.playerPair) svg += '<circle cx="' + (x - 6) + '" cy="' + (y - 6) + '" r="2.2" fill="var(--player)" stroke="#fff" stroke-width=".6"/>';
     if (cell.bankerPair) svg += '<circle cx="' + (x + 6) + '" cy="' + (y + 6) + '" r="2.2" fill="var(--banker)" stroke="#fff" stroke-width=".6"/>';
+    const kind = hitKindOf(results[cell.handIndex]); // survives dragon tails: the cell keeps its hand index wherever it lands
+    if (kind) svg += badgeMark(kind, x, y, 'big');
+    if (kind && pulseKind && cell.handIndex === results.length - 1) svg += pulseRing(x, y, kind);
   });
-  setRoad('bigroad', svg + '</svg>');
+  setRoad('bigroad', svg + '</svg>', big.width * cs);
   // derived roads
   [['bigeye', 1], ['small', 2], ['cockroach', 3]].forEach(([id, k]) => {
     const entries = derivedEntries(cols, k);
@@ -1173,13 +1301,17 @@ function renderRoads() {
       else if (k === 2) s += '<circle cx="' + x + '" cy="' + y + '" r="5.5" fill="' + color + '"/>';
       else s += '<line x1="' + (x + 5) + '" y1="' + (y - 5) + '" x2="' + (x - 5) + '" y2="' + (y + 5) + '" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round"/>';
     });
-    setRoad(id, s + '</svg>');
+    setRoad(id, s + '</svg>', placed.width * cs);
   });
   // counts
   const n = results.length, P = results.filter((r) => r.outcome === 'player').length, B = results.filter((r) => r.outcome === 'banker').length, T = n - P - B;
   const d7 = results.filter((r) => r.dragon7).length, p8 = results.filter((r) => r.panda8).length, pp = results.filter((r) => r.playerPair).length, bp = results.filter((r) => r.bankerPair).length;
-  $('counts').innerHTML = '<span class="p">Player ' + P + '</span><span class="b">Banker ' + B + '</span><span class="t">Tie ' + T + '</span><span>Dragon 7: ' + d7 + '</span><span>Panda 8: ' + p8 + '</span><span>P pair ' + pp + '</span><span>B pair ' + bp + '</span><span class="' + (S.shoeNet > 0 ? 'up' : S.shoeNet < 0 ? 'down' : '') + '">Shoe net ' + fmtNet(S.shoeNet) + '</span>';
+  $('counts').innerHTML = '<span class="p">Player ' + P + '</span><span class="b">Banker ' + B + '</span><span class="t">Tie ' + T + '</span>' +
+    '<span class="d7' + (pulseKind === 'dragon7' ? ' bump' : '') + '">' + glyphSVG('dragon7', 'cd') + 'Dragon 7: ' + d7 + '</span>' +
+    '<span class="p8' + (pulseKind === 'panda8' ? ' bump' : '') + '">' + glyphSVG('panda8', 'cp') + 'Panda 8: ' + p8 + '</span>' +
+    '<span>P pair ' + pp + '</span><span>B pair ' + bp + '</span><span class="' + (S.shoeNet > 0 ? 'up' : S.shoeNet < 0 ? 'down' : '') + '">Shoe net ' + fmtNet(S.shoeNet) + '</span>';
   $('road-hands').textContent = n + ' hands this shoe';
+  renderBonusHistory(results, pulseKind);
 }
 function svgOpen(cols, rows, cs) {
   let s = '<svg xmlns="http://www.w3.org/2000/svg" width="' + cols * cs + '" height="' + rows * cs + '" viewBox="0 0 ' + cols * cs + ' ' + rows * cs + '">';
@@ -1189,7 +1321,7 @@ function svgOpen(cols, rows, cs) {
   return s;
 }
 function tieMark(x, y, n) { return '<line x1="' + (x - 6) + '" y1="' + (y + 6) + '" x2="' + (x + 6) + '" y2="' + (y - 6) + '" stroke="var(--tie)" stroke-width="2.2" stroke-linecap="round"/>' + (n > 1 ? '<text x="' + (x + 5) + '" y="' + (y + 7.5) + '" font-size="7" fill="var(--tie)" font-weight="700">' + n + '</text>' : ''); }
-function setRoad(id, html) { const el = $(id); el.innerHTML = html; el.scrollLeft = el.scrollWidth; }
+function setRoad(id, html, usedPx) { const el = $(id); el.innerHTML = html; el.scrollLeft = usedPx === undefined ? el.scrollWidth : Math.max(0, usedPx + 2 - el.clientWidth); }
 
 function renderCoach() {
   const lines = [];

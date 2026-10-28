@@ -42,12 +42,17 @@ class FakeOscillator extends FakeNode {
   stop(): void {}
 }
 class FakeSource extends FakeNode {
-  buffer: unknown = null;
+  buffer: { duration: number } | null = null;
   startedAt = 0;
-  start(t: number): void {
+  offset = 0;
+  stoppedAt = 0;
+  start(t: number, offset = 0): void {
     this.startedAt = t;
+    this.offset = offset;
   }
-  stop(): void {}
+  stop(t: number): void {
+    this.stoppedAt = t;
+  }
 }
 class FakeFilter extends FakeNode {
   type = 'lowpass';
@@ -80,9 +85,9 @@ class FakeAudioContext {
   createBiquadFilter(): FakeFilter {
     return new FakeFilter();
   }
-  createBuffer(_channels: number, length: number): { getChannelData: () => Float32Array } {
+  createBuffer(_channels: number, length: number, sampleRate: number): { duration: number; getChannelData: () => Float32Array } {
     const data = new Float32Array(length);
-    return { getChannelData: () => data };
+    return { duration: length / sampleRate, getChannelData: () => data };
   }
 }
 
@@ -169,6 +174,19 @@ describe('soundEngine', () => {
     const bonus = play('bonus');
     expect(bonus.sources).toHaveLength(0); // the pair / natural sparkle is tones only
     expect(bonus.oscillators.length).toBeLessThan(dragon.oscillators.length);
+  });
+
+  it('never starts a noise burst so late in the buffer that it runs out before the burst has faded', () => {
+    // The riser's swell is 1.05 s of a 1.2 s noise buffer: a random start past 0.15 s would cut it off mid-envelope.
+    for (let round = 0; round < 40; round++) {
+      for (const name of SOUND_NAMES) {
+        for (const source of play(name).sources) {
+          const length = source.buffer!.duration;
+          expect(source.offset, name).toBeGreaterThanOrEqual(0);
+          expect(source.offset + (source.stoppedAt - source.startedAt), name).toBeLessThanOrEqual(length);
+        }
+      }
+    }
   });
 
   it('debounces the same sound fired twice in one frame', () => {

@@ -672,10 +672,14 @@ describe('PlayView — settlement display', () => {
     expect(third.getAttribute('data-reveal')).toBe('true');
     expect(banker().getAttribute('data-total')).toBe(String(handTotal(session.getState().lastHand!.result.bankerCards.slice(0, 2)))); // the two-card total while it waits
     expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+    // The beginner tip (on by default) must not give the face-down card away before it turns.
+    expect(screen.getByTestId('dealer-tip').textContent).toMatch(/third card lands face down — it turns over in a moment/);
+    expect(screen.getByTestId('dealer-tip').textContent).not.toMatch(/third card is|→/);
     act(() => {
       vi.advanceTimersByTime(1100);
     });
     expect(banker().getAttribute('data-total')).toBe('7');
+    expect(screen.getByTestId('dealer-tip').textContent).toMatch(/Banker’s third card is .* → 7\./);
     for (let i = 0; i < 400 && screen.queryByTestId('bonus-celebration') === null; i++) {
       act(() => {
         vi.advanceTimersByTime(25);

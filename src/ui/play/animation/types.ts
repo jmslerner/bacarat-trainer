@@ -76,6 +76,8 @@ export interface Celebration {
   pays: number;
   /** Net won on the Dragon 7 / Panda 8 bet (0 without one). */
   won: number;
+  /** The table offers the side bet (an EZ table can have the Dragon 7 bet switched off and still call the push). */
+  offered: boolean;
   /** The player had the bet on the layout. */
   hadBet: boolean;
   /** An EZ Banker bet pushes on the Dragon 7. */

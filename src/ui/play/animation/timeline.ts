@@ -11,7 +11,7 @@
  * and holds longer than an ordinary call before the settlement goes on as usual.
  */
 import { BET_TYPES } from '@/engine';
-import type { BetType, Bets, HandResult, HandSettlement, ShoeInfo, TableRules } from '@/engine';
+import type { BetType, Bets, HandResult, HandSettlement, ShoeInfo, Side, TableRules } from '@/engine';
 import { formatMoney } from '@/ui/shell';
 import { explainSteps } from '../coach/tips';
 import { emptyHand, type BonusKind, type Celebration, type Frame, type HandDisplay, type LayoutDisplay, type ShuffleDisplay } from './types';
@@ -61,6 +61,15 @@ export function celebrationHoldMs(base: number): number {
  */
 export function revealMs(base: number): number {
   return base >= 500 ? Math.round(base * 1.6) : 0;
+}
+
+/**
+ * The beginner tip while that card lies face down. The ordinary third-card tip names the card and the new total
+ * ("Banker's third card is 4♥ … 3 + 4 → 7"), which would give the reveal away before it turns; this one does not
+ * (and is no longer than it, so the dealer bar keeps its height when the card turns).
+ */
+export function faceDownTip(side: Side): string {
+  return `${side === 'player' ? 'Player' : 'Banker'}’s third card lands face down — it turns over in a moment.`;
 }
 
 export type ChipStacks = Partial<Record<BetType, readonly number[]>>;
@@ -168,6 +177,7 @@ export function buildCelebration({ result, settlement, rules, bets, holdMs }: Ce
     side: kind === 'dragon7' ? 'banker' : 'player',
     pays: kind === 'dragon7' ? rules.dragon7Pays : rules.panda8Pays,
     won: line && line.result === 'win' ? line.net : 0,
+    offered: rules.sideBets[kind],
     hadBet: (bets[kind] ?? 0) > 0,
     bankerPush: kind === 'dragon7' && banker !== undefined && banker.result === 'push',
     holdMs,
@@ -234,9 +244,9 @@ export function buildHandTimeline(input: HandTimelineInput): Frame[] {
         if (step.index === 2) {
           if (reveal > 0 && celebration !== null && to === celebration.side) {
             // The card that makes the Dragon 7 / Panda 8 lands face down and waits under the drum roll; it turns
-            // over as the dealer calls the total.
+            // over as the dealer calls the total. Until then the beginner tip must not name it.
             hand.reveal = to;
-            frames.push({ at: t, hand, sound: 'riser' });
+            frames.push({ at: t, hand: { ...hand, tip: hand.tip === null ? null : faceDownTip(to) }, sound: 'riser' });
             t += reveal;
             hand = { ...hand };
             sound = 'flip';

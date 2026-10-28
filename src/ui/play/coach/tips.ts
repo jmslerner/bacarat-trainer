@@ -117,9 +117,10 @@ export function explainSteps(result: HandResult, rules: TableRules): Array<strin
       case 'bonus':
         switch (step.kind) {
           case 'dragon7':
-            return rules.bankerRule === 'ez'
+            if (rules.bankerRule !== 'ez') return `Banker won with a THREE-card 7 — the Dragon 7, paying ${rules.dragon7Pays}:1.`;
+            return rules.sideBets.dragon7
               ? `Banker won with a THREE-card 7 — the Dragon 7. Dragon 7 bets pay ${rules.dragon7Pays}:1 and the Banker bet is a push: that push is how EZ Baccarat replaces the commission.`
-              : `Banker won with a THREE-card 7 — the Dragon 7, paying ${rules.dragon7Pays}:1.`;
+              : 'Banker won with a THREE-card 7 — the Dragon 7. The Banker bet is a push: that push is how EZ Baccarat replaces the commission.';
           case 'panda8':
             return `Player won with a THREE-card 8 — the Panda 8, paying ${rules.panda8Pays}:1. A two-card 8 is a natural, not a Panda.`;
           case 'playerPair':
