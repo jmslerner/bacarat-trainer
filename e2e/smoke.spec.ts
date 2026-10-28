@@ -269,3 +269,112 @@ test('no horizontal overflow at 380, 768 and 1440 px in every mode, settings dia
   }
   expect(problems).toEqual([]);
 });
+
+/** What the table shows right after a hand at instant speed, read in one go (the hit's banner fades by itself after 1.2 s). */
+interface Moment {
+  kind: 'dragon7' | 'panda8';
+  overlayKind: string | null;
+  pointerEvents: string;
+  inFelt: boolean;
+  title: string | null;
+  medallion: string | null;
+  payout: string | null;
+  particles: boolean;
+  bigCall: string | null;
+  handText: string | null;
+}
+
+test('a Dragon 7 or Panda 8: the celebration over the felt, then the hit on the scoreboard and in the history', async ({ page }) => {
+  const problems = watchConsole(page);
+  await page.goto('/#play');
+  // A bankroll that 400 hands of $35 can never run dry.
+  await page.evaluate(() => {
+    window.localStorage.setItem('bt:bankroll', '20000');
+    window.localStorage.setItem('bt:buyIn', '20000');
+  });
+  await page.reload();
+  const view = page.getByTestId('play-view');
+  await page.getByLabel('Dealing speed').selectOption('instant');
+  await expect(view).toHaveAttribute('data-phase', 'idle', { timeout: 20_000 });
+  await page.getByTestId('chip-25').click();
+  await page.locator('[data-bet="banker"]').click();
+  await page.getByTestId('chip-5').click();
+  await page.locator('[data-bet="dragon7"]').click();
+  await page.locator('[data-bet="panda8"]').click();
+  await expect(page.getByTestId('table-bankroll')).toContainText('On layout $35');
+
+  // Instant speed: each hand is dealt and settled within the key press.
+  let moment: Moment | null = null;
+  for (let hand = 1; hand <= 400 && moment === null; hand++) {
+    if (hand > 1) await page.keyboard.press('r');
+    await page.keyboard.press(' ');
+    moment = await page.evaluate((): Moment | null => {
+      const q = (s: string): HTMLElement | null => document.querySelector<HTMLElement>(s);
+      const kind = q('[data-testid="hand-history"] li')?.getAttribute('data-hit');
+      // A hit on the shoe's last hand is followed at once by the new shoe's empty roads: look for another.
+      if ((kind !== 'dragon7' && kind !== 'panda8') || /^New shoe/.test(q('[data-testid="dealer-call"]')?.textContent ?? '')) return null;
+      const overlay = q('[data-testid="bonus-celebration"]');
+      const banner = q('[data-testid="bonus-banner"]');
+      return {
+        kind,
+        overlayKind: overlay?.getAttribute('data-kind') ?? null,
+        pointerEvents: overlay ? getComputedStyle(overlay).pointerEvents : '',
+        inFelt: !!overlay?.closest('[data-testid="felt"]'),
+        title: banner?.querySelector('[data-text]')?.textContent ?? null,
+        medallion: banner?.querySelector('[data-medallion]')?.getAttribute('data-medallion') ?? null,
+        payout: q('[data-testid="bonus-payout"]')?.textContent ?? null,
+        particles: !!overlay?.querySelector('[data-testid="bonus-particles"]'),
+        bigCall: q('[data-testid="dealer-call"] [data-hit]')?.textContent ?? null,
+        handText: Array.from(document.querySelectorAll('span')).find((s) => /^Hand \d+$/.test(s.textContent ?? ''))?.textContent ?? null,
+      };
+    });
+  }
+  expect(moment, 'a Dragon 7 or a Panda 8 within 400 hands').not.toBeNull();
+  const m = moment!;
+  const dragon = m.kind === 'dragon7';
+  const name = dragon ? 'Dragon 7' : 'Panda 8';
+
+  // The moment: a decorative overlay inside the felt that never takes the pointer.
+  expect(m.overlayKind).toBe(m.kind);
+  expect(m.inFelt).toBe(true);
+  expect(m.pointerEvents).toBe('none');
+  expect(m.title).toBe(dragon ? 'DRAGON 7' : 'PANDA 8');
+  expect(m.medallion).toBe(m.kind);
+  expect(m.payout).toBe(dragon ? 'Pays 40 to 1 · you won +$200 · Banker bet pushes' : 'Pays 25 to 1 · you won +$125');
+  expect(m.particles).toBe(true);
+  expect(m.bigCall).toBe(`${name}!`);
+
+  // The scoreboard: the bead and the big-road cell of this hand carry the medallion, the counter flags the new hit,
+  // the bonus history lists it with its hand number.
+  const handNo = Number((m.handText ?? '').replace(/\D/g, ''));
+  expect(handNo).toBeGreaterThan(0);
+  const hitLabel = `Hand ${handNo}: ${dragon ? 'Banker' : 'Player'}, ${name}`;
+  const bead = page.locator(`[data-bead="${handNo - 1}"]`);
+  await expect(bead).toHaveAttribute('data-medallion', m.kind);
+  await expect(bead).toHaveAttribute('aria-label', hitLabel);
+  const bigCell = page.locator(`[data-big-cell][data-hit="${m.kind}"][aria-label="${hitLabel}"]`);
+  await expect(bigCell).toHaveCount(1);
+  await expect(bigCell.locator(`[data-badge="${m.kind}"]`)).toHaveCount(1);
+  const counter = page.locator(`li[data-count="${m.kind}"]`);
+  await expect(counter).toHaveAttribute('data-latest', 'true');
+  await expect(counter.getByTestId('bonus-plus-one')).toBeVisible();
+  await expect(page.locator(`[data-testid="bonus-hit"][data-kind="${m.kind}"][data-hand="${handNo}"]`)).toHaveCount(1);
+  await expect(page.getByTestId(`bonus-since-${m.kind}`)).toHaveText(new RegExp(`^Since last ${name}: this hand \\(expected about 1 in (44|29)\\)$`));
+  const row = page.getByTestId('hand-history').getByRole('listitem').first();
+  await expect(row).toHaveAttribute('data-hit', m.kind);
+  await expect(row.locator(`[data-medallion="${m.kind}"]`)).toHaveCount(1);
+
+  // The banner goes by itself without holding up the table, and the next deal clears what is left of the moment.
+  await expect(page.getByTestId('bonus-celebration')).toHaveCount(0, { timeout: 5_000 });
+  await expect(page.getByTestId('rebet-button')).toBeEnabled();
+  await page.keyboard.press('r');
+  await page.keyboard.press(' ');
+  const next = await page.getByTestId('hand-history').getByRole('listitem').first().getAttribute('data-hit');
+  const newShoe = /^New shoe/.test((await page.getByTestId('dealer-call').textContent()) ?? '');
+  if (next === null && !newShoe) {
+    await expect(page.getByTestId('dealer-call').locator('[data-hit]')).toHaveCount(0);
+    await expect(counter).not.toHaveAttribute('data-latest', 'true');
+    await expect(page.getByTestId(`bonus-since-${m.kind}`)).toHaveText(new RegExp(`^Since last ${name}: 1 hand `));
+  }
+  expect(problems).toEqual([]);
+});

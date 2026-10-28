@@ -366,8 +366,11 @@ Algorithms (must be exact — casinos' electronic displays follow these):
 Components (`src/roads/components/`, SVG, scale with `viewBox`, auto-scroll to show the newest columns, props typed):
 `<BeadPlateView results cols rows />`, `<BigRoadView results cols rows />`, `<DerivedRoadView results kind cols rows />`,
 and `<Scoreboard results prediction? onPredict? />` — the casino display: bead plate left, big road top right, the
-three derived roads below it, a counts strip (P/B/T, pairs, D7, P8, hand count) and "Ask P" / "Ask B" prediction
-buttons that highlight what each derived road would show. Symbols as on real displays: big eye boy = hollow
+three derived roads below it, a counts strip (P/B/T, pairs, D7, P8, hand count), the shoe's Dragon 7 / Panda 8 history
+(`<BonusStrip results />`: every hit with its hand number, hands since the last of each kind against
+`BONUS_EXPECTED_EVERY`; a hit is a medallion bead on the bead plate and a corner badge on the big road, the newest one
+pulsing — all derived from `results` by `bonusHistory`, so the road algorithms are untouched) and "Ask P" / "Ask B"
+prediction buttons that highlight what each derived road would show. Symbols as on real displays: big eye boy = hollow
 circles, small road = solid dots, cockroach = slashes; big road = hollow circles (red B / blue P) with a letter
 inside, tie = green diagonal stroke with a count when > 1, pairs = small dots.
 
@@ -494,6 +497,13 @@ betting over ≥ 200,000 hands within ±0.3% of the exact EZ Banker edge; martin
   sideways, each step's message shown in the dealer bar (`aria-live`), with per-step delays scaled by the speed
   setting (and an "instant" option). Then settlement: winning spots show the payout chips, losing chips are
   swept, pushes stay; bankroll animates to the new value. Then the result is pushed to the roads/history.
+* The Dragon 7 / Panda 8 moment (`buildCelebration` → the bonus frame's `celebrate`): at normal and slow speeds the third
+  card that makes the hit waits face down (`revealMs`) under a drum roll — the beginner tip must not name it — and turns
+  as the total is called; the hit's call then holds `celebrationHoldMs` (2.6 s normal, 3.5 s slow, 1.4 s fast) while
+  `<BonusCelebration/>` plays inside the felt (flash, embers / confetti, a medallion banner placed just below the cards
+  and wholly on screen, with the payout line; pointer-events none, aria-hidden — the dealer bar announces the call),
+  before the settlement goes on. At instant speed nothing waits: the banner shows itself for 1.2 s. Reduced motion:
+  the banner only. The next deal, a fast-forward or a reset clears it.
 * New shoe sequence: "Shuffling…", cut card placed, exposed burn card shown with "Burning N cards", then play.
   Banner "Last hand of the shoe" when `lastHandNext`.
 * Controls: DEAL (disabled with reason when `canDeal()` fails), REBET, CLEAR, UNDO, AUTO (auto-rebet and deal

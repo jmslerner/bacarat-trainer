@@ -5,10 +5,11 @@
  * `base` is the per-step delay of the speed setting (0 = instant: every frame is at 0 and the runner applies them
  * all synchronously, so the table jumps straight to the settled hand).
  *
- * A Dragon 7 / Panda 8 is known from the result before a card is dealt, so the timeline stages the moment: the
- * third card of the winning side waits face down under a drum roll and flips as the total is called (normal and
- * slow speeds), then the bonus step carries a `Celebration` the felt plays — flash, medallion banner, particles —
- * and holds longer than an ordinary call before the settlement goes on as usual.
+ * The squeeze (normal and slow speeds): a third card that could still make a Dragon 7 / Panda 8 bet on the layout
+ * lands face down, waits under a drum roll and turns as the total is called (`squeezeSides`). The choice uses only
+ * what the table already shows, so the face-down card says nothing about itself before it turns: a miss goes on like
+ * any third card, a hit goes on to its moment — the bonus step carries a `Celebration` the felt plays (flash,
+ * medallion banner, particles) and holds longer than an ordinary call before the settlement goes on as usual.
  */
 import { BET_TYPES } from '@/engine';
 import type { BetType, Bets, HandResult, HandSettlement, ShoeInfo, Side, TableRules } from '@/engine';
@@ -56,20 +57,43 @@ export function celebrationHoldMs(base: number): number {
 }
 
 /**
- * The suspense before the card that makes a Dragon 7 / Panda 8 turns over: it lies face down this long after it
- * lands (normal and slow speeds); at fast and instant it is just the ordinary flip.
+ * How long a squeezed third card lies face down after it lands before it turns (normal and slow speeds). At fast and
+ * instant speeds nothing is squeezed: every card gets the ordinary flip.
  */
 export function revealMs(base: number): number {
   return base >= 500 ? Math.round(base * 1.6) : 0;
 }
 
+/** Which third cards of a hand the dealer squeezes. */
+export interface SqueezeSides {
+  player: boolean;
+  banker: boolean;
+}
+
 /**
- * The beginner tip while that card lies face down. The ordinary third-card tip names the card and the new total
- * ("Banker's third card is 4♥ … 3 + 4 → 7"), which would give the reveal away before it turns; this one does not
- * (and is no longer than it, so the dealer bar keeps its height when the card turns).
+ * The squeeze, as a casino dealer gives it to the players' side bets: a third card is turned slowly when it could
+ * still make a side bet on this hand's layout. The choice uses only what the table already shows, never the card:
+ *  - the Player's third card whenever the Player draws with a Panda 8 bet down (the Banker never has a natural when
+ *    the Player draws, so any Player third card could still make a winning three-card 8);
+ *  - the Banker's third card whenever the Banker draws with a Dragon 7 bet down and the Player's final total is 6 or
+ *    less (a Player 7, 8 or 9 rules out a winning Banker 7; every Banker total that draws can still reach 7).
+ * Without the bet a Dragon 7 / Panda 8 card is dealt face up like any other, and still celebrated. The timeline
+ * squeezes at normal and slow speeds only (`revealMs`).
+ */
+export function squeezeSides(result: HandResult, bets: Bets): SqueezeSides {
+  return {
+    player: result.playerCards.length === 3 && (bets.panda8 ?? 0) > 0,
+    banker: result.bankerCards.length === 3 && (bets.dragon7 ?? 0) > 0 && result.playerTotal <= 6,
+  };
+}
+
+/**
+ * The beginner tip while a squeezed card lies face down. The ordinary third-card tip names the card and the new total
+ * ("Banker’s third card is 4♥ … 3 + 4 → 7"), which would give the card away before it turns; this one only says why
+ * the card is squeezed — the same words whether it makes the hit or not — and is never longer than the ordinary tip.
  */
 export function faceDownTip(side: Side): string {
-  return `${side === 'player' ? 'Player' : 'Banker'}’s third card lands face down — it turns over in a moment.`;
+  return side === 'player' ? 'Player’s third card is squeezed: it could still make a Panda 8.' : 'Banker’s third card is squeezed: it could still make a Dragon 7.';
 }
 
 export type ChipStacks = Partial<Record<BetType, readonly number[]>>;
@@ -221,7 +245,8 @@ export function buildHandTimeline(input: HandTimelineInput): Frame[] {
   const frames: Frame[] = [];
   const layout = layoutFromBets(input.bets, input.stacks, rules.chipDenominations);
   const celebration = buildCelebration({ result, settlement, rules, bets: input.bets, holdMs: celebrationHoldMs(base) });
-  const reveal = celebration ? revealMs(base) : 0;
+  const reveal = revealMs(base);
+  const squeeze = squeezeSides(result, input.bets);
   let t = 0;
 
   // Clear the previous hand, show the layout being played, close the betting.
@@ -242,13 +267,15 @@ export function buildHandTimeline(input: HandTimelineInput): Frame[] {
         hold = TIMING.deal;
         sound = 'deal';
         if (step.index === 2) {
-          if (reveal > 0 && celebration !== null && to === celebration.side) {
-            // The card that makes the Dragon 7 / Panda 8 lands face down and waits under the drum roll; it turns
-            // over as the dealer calls the total. Until then the beginner tip must not name it.
-            hand.reveal = to;
+          if (reveal > 0 && squeeze[to]) {
+            // The squeeze: the card lands face down and waits under the drum roll; it turns as the dealer calls the
+            // total. Hit or miss, this frame is the same but for the card itself — the wait, the sound, the call,
+            // the tip, the held totals — so nothing gives the card away before it turns.
+            hand.reveal = hand.reveal === null || hand.reveal === to ? to : 'both';
+            hand.faceDown = to;
             frames.push({ at: t, hand: { ...hand, tip: hand.tip === null ? null : faceDownTip(to) }, sound: 'riser' });
             t += reveal;
-            hand = { ...hand };
+            hand = { ...hand, faceDown: null };
             sound = 'flip';
           }
           // The third card changes the total at once, as the dealer calls it.

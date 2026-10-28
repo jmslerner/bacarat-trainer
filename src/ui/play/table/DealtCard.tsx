@@ -2,10 +2,12 @@
  * DealtCard — a card that slides in from the shoe and flips face up when it mounts. Third cards are laid
  * sideways. The slide origin is measured from the shoe element.
  *
- * With `revealMs` the card is the one that makes a Dragon 7 / Panda 8: it slides in face down, waits under the
- * drum roll and only then turns (the outer element slides, the inner one flips, so the two animations never fight
- * over `transform`). A fast-forward drops `revealMs` to 0 and the card snaps face up. `glow` is the celebration's
- * light on the winning hand: soft on every card, strong on the one that made it.
+ * With `revealMs` the card is squeezed: it slides in face down, waits under the drum roll and only then turns (the
+ * outer element slides, the inner one flips, so the two animations never fight over `transform`). While `faceDown`
+ * it breathes in its side's colour (gold Banker, pearl Player — the same whether it makes the hit or not) and only
+ * its back is announced, never its face; the ring goes when it turns. A fast-forward drops `revealMs` to 0 and the
+ * card snaps face up. `glow` is the celebration's light on the winning hand: soft on every card, strong on the one
+ * that made it.
  */
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import type { Card } from '@/engine';
@@ -21,19 +23,24 @@ export interface DealtCardProps {
   dimmed?: boolean;
   /** CSS duration of the slide/flip; 0 = no animation. */
   dealMs: number;
-  /** Suspense reveal: the card lies face down this long before it flips (0 = the ordinary flip). */
+  /** The squeeze: the card lies face down this long before it flips (0 = the ordinary flip). */
   revealMs?: number;
+  /** The squeezed card has not turned yet: its face is not announced, and it wears the squeeze ring. */
+  faceDown?: boolean;
   /** Celebration glow. */
   glow?: 'soft' | 'strong' | null;
 }
 
 type Mode = 'static' | 'deal' | 'suspense';
 
-export function DealtCard({ card, rotated = false, size, shoeRef, highlight, dimmed, dealMs, revealMs = 0, glow = null }: DealtCardProps): ReactNode {
+export function DealtCard({ card, rotated = false, size, shoeRef, highlight, dimmed, dealMs, revealMs = 0, faceDown = false, glow = null }: DealtCardProps): ReactNode {
   const ref = useRef<HTMLDivElement>(null);
-  // How the card arrives is decided once, when it lands: later renders never replay the slide.
+  // How the card arrives is decided once, when it lands, timings included: later renders (a speed change mid-hand)
+  // never replay the slide or turn a squeezed card face down again.
   const [mode] = useState<Mode>(() => (dealMs <= 0 ? 'static' : revealMs > 0 ? 'suspense' : 'deal'));
+  const [timing] = useState(() => ({ dealMs, revealMs }));
   const waiting = mode === 'suspense' && revealMs > 0;
+  const hidden = waiting && faceDown;
 
   // Measure the distance from the shoe once, before the first paint, so the slide starts at the shoe.
   useLayoutEffect(() => {
@@ -53,23 +60,25 @@ export function DealtCard({ card, rotated = false, size, shoeRef, highlight, dim
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const style = { '--deal-ms': `${dealMs}ms`, '--reveal-ms': `${revealMs}ms` } as CSSProperties;
+  const style = { '--deal-ms': `${timing.dealMs}ms`, '--reveal-ms': `${timing.revealMs}ms` } as CSSProperties;
   return (
     <div
       ref={ref}
-      className={cx(styles.cardFlip, mode === 'deal' && styles.cardAnimated, waiting && styles.cardSuspense, mode === 'suspense' && !waiting && styles.cardSnapped, glow === 'soft' && styles.cardGlow, glow === 'strong' && styles.cardGlowStrong)}
+      className={cx(styles.cardFlip, mode === 'deal' && styles.cardAnimated, waiting && styles.cardSuspense, hidden && styles.cardFaceDown, mode === 'suspense' && !waiting && styles.cardSnapped, glow === 'soft' && styles.cardGlow, glow === 'strong' && styles.cardGlowStrong)}
       style={style}
       data-card-id={card.id}
       data-dealt
       data-reveal={waiting || undefined}
+      data-face-down={hidden || undefined}
       data-glow={glow ?? undefined}
     >
       <div className={styles.cardInner}>
-        <div className={styles.cardFace}>
+        {/* Face down, the back is the card: a screen reader hears "Face-down card", not the face behind it. */}
+        <div className={styles.cardFace} aria-hidden={hidden || undefined}>
           <PlayingCard card={card} rotated={rotated} size={size} highlight={highlight} dimmed={dimmed} />
         </div>
-        <div className={styles.cardBack} aria-hidden="true">
-          <PlayingCard faceDown rotated={rotated} size={size} label="" />
+        <div className={styles.cardBack} aria-hidden={hidden ? undefined : true}>
+          <PlayingCard faceDown rotated={rotated} size={size} label={hidden ? undefined : ''} />
         </div>
       </div>
     </div>

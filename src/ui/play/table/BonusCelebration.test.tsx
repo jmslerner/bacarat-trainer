@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { useRef, type ReactNode } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { BonusCelebration, FADE_MS, bannerCentre, payoutLine } from './BonusCelebration';
@@ -191,5 +193,28 @@ describe('BonusCelebration', () => {
     expect(screen.getByTestId('bonus-celebration').getAttribute('data-kind')).toBe('panda8');
     rerender(<BonusCelebration celebration={null} />);
     expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+  });
+});
+
+describe('the moment’s stylesheet', () => {
+  const css = readFileSync(join(dirname(expect.getState().testPath ?? ''), 'Felt.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (selector: string): string => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+  };
+
+  it('places the banner without a transition (the global reduced-motion rule would otherwise slide it from the default spot)', () => {
+    expect(rule('.fxBanner')).toMatch(/transition:\s*none/);
+  });
+
+  it('turns the suspense card so its face shows as the total changes, and lights the flash where the banner is', () => {
+    expect(rule('.cardSuspense .cardInner')).toMatch(/calc\(var\(--reveal-ms\) - var\(--deal-ms\) \* 0\.23\)/);
+    expect(rule('.fxDragon .fxFlash')).toMatch(/at 50% var\(--fx-centre\)/);
+    expect(rule('.fxPanda .fxFlash')).toMatch(/at 50% var\(--fx-centre\)/);
+  });
+
+  it('puts the EZ push note on its own line on phones, without a leading separator', () => {
+    expect(rule('.fxPhone .fxPush')).toMatch(/display:\s*block/);
+    expect(rule('.fxPhone .fxPush .fxSep')).toMatch(/display:\s*none/);
   });
 });

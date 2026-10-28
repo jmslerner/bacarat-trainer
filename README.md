@@ -24,10 +24,18 @@ and where the only real edge (counting the side bets) comes from.
   "Last hand of the shoe" banner, and the shuffle / cut / burn sequence of every new shoe.
 * Settlement animation: winners get their payout chips, losers are swept, pushes stay; the bankroll counts up or
   down; the top-bar pill follows the table so the result is never revealed early.
+* The Dragon 7 / Panda 8 moment: at normal and slow speeds the card that makes the hit lands face down under a drum
+  roll and turns as the total is called; then the felt lights up (embers for the Dragon, panda-coloured confetti for
+  the Panda), a medallion banner just below the cards names the hit and its payout ("Pays 40 to 1 · you won +$200 ·
+  Banker bet pushes"), the winning hand, the side-bet spot, the bankroll plaque and the top-bar pill glow, and a gong
+  or a chime cascade plays — about 2.6 s at normal speed, never taking a click. At instant speed the banner shows for
+  1.2 s without slowing the next deal; with reduced motion only the banner remains.
 * The complete scoreboard — bead plate, big road, big eye boy, small road, cockroach pig — with "Ask P / Ask B"
-  prediction, hand history with every card, session statistics and a Coach panel (house edge and expected loss of the
-  bets on the layout, Dragon 7 and Panda 8 running/true counts with a recommendation, streak, realized edge,
-  one-line "why" explanations of every dealer call).
+  prediction and the shoe's Dragon 7 / Panda 8 history (medallion beads, big-road badges, a "+1" on the D7 / P8
+  counters, every hit with its hand number and how long since each against the expected 1 in 44 / 1 in 29), hand
+  history with every card (hits tinted, with their medallion), session statistics and a Coach panel (house edge and
+  expected loss of the bets on the layout, Dragon 7 and Panda 8 running/true counts with a recommendation, streak,
+  realized edge, one-line "why" explanations of every dealer call).
 * Rule variants in Settings: EZ (default), classic 5% commission (with a commission box), Super 6; 6 or 8 decks;
   Tie 8:1 or 9:1; side bets on/off; table level, limits, cut card, burn procedure and the chip tray are all editable.
 * Keyboard: `1`–`9` select a chip, `P` `B` `T` place on Player / Banker / Tie, `D` Dragon 7, `N` Panda 8, `Space` deal

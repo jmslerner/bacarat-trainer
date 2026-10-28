@@ -130,13 +130,14 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 .banner:empty { display: none; }
 
 .hands { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-@media (max-width: 640px) { .hands { grid-template-columns: minmax(0, 1fr); } .cards.player { justify-content: flex-start; flex-direction: row; } }
+@media (max-width: 640px) { .hands { grid-template-columns: minmax(0, 1fr); } }
 .hand { border: 1px dashed rgba(243,234,214,.35); border-radius: 12px; padding: 10px; min-height: 134px; display: flex; flex-direction: column; gap: 8px; min-width: 0; overflow: hidden; }
 .hand-head { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-display); font-size: 15px; letter-spacing: .1em; }
 .hand.player .hand-head { color: #8fbcff; } .hand.banker .hand-head { color: #ff9aa8; }
 .total { font-size: 22px; color: var(--ivory); font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
 .cards { display: flex; align-items: center; gap: 8px; min-height: 86px; }
 .cards.player { justify-content: flex-end; flex-direction: row-reverse; } /* Player's first card nearest the centre */
+@media (max-width: 640px) { .cards.player { justify-content: flex-start; flex-direction: row; } } /* hands stacked on a phone: both read left to right in deal order */
 .card {
   width: 58px; height: 82px; border-radius: 7px; background: var(--card); color: var(--card-black);
   position: relative; box-shadow: 0 3px 8px rgba(0,0,0,.45); flex: none; font-weight: 700;
@@ -349,16 +350,18 @@ table.stat tr:last-child td { border-bottom: 0; }
 @keyframes bannerOut { to { transform: translate(-50%, -62%) scale(.9); opacity: 0; } }
 @keyframes medalPulse { 50% { transform: scale(1.07) rotate(-4deg); } }
 @keyframes medalDrop { 0% { transform: translateY(-160px) scale(.5) rotate(-25deg); opacity: 0; } 48% { transform: translateY(0) scale(1.1) rotate(2deg); opacity: 1; } 66% { transform: translateY(-18px) scale(1) rotate(-2deg); } 82% { transform: translateY(0) scale(1.05); } 100% { transform: none; } }
-/* suspense reveal: at normal and slow speed the deciding card of a hit lands face down, glows, then turns over */
-.card.third.suspense { animation: suspenseFlip var(--flip, 1.5s) cubic-bezier(.3,.5,.3,1) both; }
+/* suspense reveal: at normal and slow speed the card that makes a hit (the winning side's third card) lands face down, glows, then turns over.
+   The glow and the ring it keeps afterwards follow the hit: gold for a Dragon 7, pearl for a Panda 8 (the same colours as the winning-hand glow below). */
+.card.third.suspense { --sus-rgb: 212,175,55; animation: suspenseFlip var(--flip, 1.5s) cubic-bezier(.3,.5,.3,1) both; }
+.card.third.suspense.sus-pearl { --sus-rgb: 240,240,240; }
 .card.third.suspense::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; border: 3px solid #fbf8f1; background: repeating-linear-gradient(45deg, #8e2b2b 0 3px, #b23a3a 3px 6px); animation: suspenseBack var(--flip, 1.5s) linear both; }
 @keyframes suspenseFlip {
   0% { transform: translate(140px, -90px) scale(.6) rotate(90deg); opacity: 0; }
   20% { transform: rotate(90deg) scaleX(1); opacity: 1; box-shadow: 0 3px 8px rgba(0,0,0,.45); }
-  48% { transform: rotate(90deg) scaleX(1); box-shadow: 0 0 0 3px var(--gold), 0 0 36px 14px rgba(212,175,55,.95); }
-  62% { transform: rotate(90deg) scaleX(0); box-shadow: 0 0 0 3px var(--gold), 0 0 24px 8px rgba(212,175,55,.7); }
-  76% { transform: rotate(90deg) scaleX(1); box-shadow: 0 0 0 3px var(--gold), 0 0 30px 10px rgba(212,175,55,.85); }
-  100% { transform: rotate(90deg); box-shadow: 0 0 0 2px var(--gold), 0 0 18px 5px rgba(212,175,55,.55); }
+  48% { transform: rotate(90deg) scaleX(1); box-shadow: 0 0 0 3px rgb(var(--sus-rgb)), 0 0 36px 14px rgba(var(--sus-rgb), .95); }
+  62% { transform: rotate(90deg) scaleX(0); box-shadow: 0 0 0 3px rgb(var(--sus-rgb)), 0 0 24px 8px rgba(var(--sus-rgb), .7); }
+  76% { transform: rotate(90deg) scaleX(1); box-shadow: 0 0 0 3px rgb(var(--sus-rgb)), 0 0 30px 10px rgba(var(--sus-rgb), .85); }
+  100% { transform: rotate(90deg); box-shadow: 0 0 0 2px rgb(var(--sus-rgb)), 0 0 18px 5px rgba(var(--sus-rgb), .55); }
 }
 @keyframes suspenseBack { 0%, 61.9% { opacity: 1; } 62%, 100% { opacity: 0; } }
 .spot.hit { animation: spotPulse .9s ease-in-out 4; border-color: var(--gold) !important; }
@@ -1074,14 +1077,15 @@ function deal() {
   document.querySelectorAll('.spot .res').forEach((e) => e.remove());
   let i = 0;
   const steps = result.steps;
-  // At normal and slow speed the deciding card of a Dragon 7 or Panda 8 hand (the last card dealt) lands face down, glows, then turns over.
+  // At normal and slow speed the card that makes the hit lands face down, glows, then turns over: the winning side's third card
+  // (Banker's for a Dragon 7, Player's for a Panda 8, even when Banker draws after it), never a card of the losing hand.
   const hitKind = result.dragon7 ? 'dragon7' : result.panda8 ? 'panda8' : null;
   const suspenseMs = hitKind && delay >= SPEEDS.normal && !reducedMotion() ? Math.round(delay * 2.3) : 0;
-  let lastDeal = -1; steps.forEach((s, k) => { if (s.type === 'deal') lastDeal = k; });
+  const suspenseStep = hitKind ? steps.findIndex((s) => s.type === 'deal' && s.index === 2 && s.to === (hitKind === 'dragon7' ? 'banker' : 'player')) : -1;
   const run = () => {
     if (i >= steps.length) return finish();
-    const st = steps[i], suspense = suspenseMs > 0 && i === lastDeal; i++;
-    applyStep(st, suspense ? suspenseMs : 0);
+    const st = steps[i], suspense = suspenseMs > 0 && i === suspenseStep; i++;
+    applyStep(st, suspense ? suspenseMs : 0, hitKind);
     const d = suspense ? suspenseMs + 180 : st.type === 'deal' ? delay : st.type === 'result' || st.type === 'bonus' ? delay * 1.4 : st.type === 'show' ? delay * 0.9 : delay * 0.6;
     if (delay === 0) run(); else setTimeout(run, d);
   };
@@ -1130,12 +1134,12 @@ function autoNext() {
   const delay = SPEEDS[S.speed];
   setTimeout(deal, delay === 0 ? 0 : 900);
 }
-function applyStep(st, suspenseMs) {
+function applyStep(st, suspenseMs, hitKind) {
   if (st.type === 'deal') {
     const el = document.createElement('div');
     const red = st.card.suit === 'H' || st.card.suit === 'D';
     el.className = 'card' + (red ? ' red' : '') + (st.index === 2 ? ' third' : '');
-    if (suspenseMs && st.index === 2) { el.classList.add('suspense'); el.style.setProperty('--flip', suspenseMs + 'ms'); }
+    if (suspenseMs && st.index === 2) { el.classList.add('suspense'); if (hitKind === 'panda8') el.classList.add('sus-pearl'); el.style.setProperty('--flip', suspenseMs + 'ms'); }
     const r = st.card.rank === 'T' ? '10' : st.card.rank;
     el.innerHTML = '<span class="corner">' + r + '<small>' + SUIT_SYM[st.card.suit] + '</small></span><span class="pip">' + SUIT_SYM[st.card.suit] + '</span>';
     el.setAttribute('aria-label', r + ' of ' + { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' }[st.card.suit]);

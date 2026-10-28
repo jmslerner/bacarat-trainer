@@ -35,10 +35,16 @@ export interface HandDisplay {
   /** Index of the step being shown (−1 before the first). */
   step: number;
   /**
-   * The side whose third card is being revealed with the suspense flip: it lies face down while the drum rolls
-   * and turns when the total is called (a Dragon 7 / Panda 8 is on its way). null = ordinary flips.
+   * The sides whose third card the dealer squeezes this hand (timeline.ts `squeezeSides`): it lands face down, waits
+   * while the drum rolls and turns when the total is called — hit or miss. Stays set for the rest of the hand so the
+   * card finishes its turn; a fast-forward clears it and the card snaps face up. null = ordinary flips.
    */
-  reveal: Side | null;
+  reveal: Side | 'both' | null;
+  /**
+   * The side whose squeezed third card is lying face down right now: from the moment it lands until the dealer calls
+   * the total. Until then nothing may name it — not its own label, the hand's label, the totals or the card counts.
+   */
+  faceDown: Side | null;
   /** The current call is the hit itself ("Dragon 7!" / "Panda 8!"): the dealer bar shows it large. */
   hit: BonusKind | null;
 }
@@ -123,6 +129,7 @@ export function emptyHand(message = 'Place your bets'): HandDisplay {
     cutCard: false,
     step: -1,
     reveal: null,
+    faceDown: null,
     hit: null,
   };
 }

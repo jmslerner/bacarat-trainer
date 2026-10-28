@@ -50,7 +50,7 @@ export type AnimAction =
   | { type: 'done' }
   | { type: 'dismissLayout' }
   | { type: 'reset'; message: string }
-  /** The playback was fast-forwarded: whatever was staged for later (the suspense flip, the celebration) is over. */
+  /** The playback was fast-forwarded: whatever was staged for later (the squeeze, the celebration) is over. */
   | { type: 'skip' };
 
 export function initialAnimState(message = 'Place your bets'): AnimState {
@@ -88,8 +88,8 @@ export function animReducer(state: AnimState, action: AnimAction): AnimState {
       };
     }
     case 'skip': {
-      // The suspense card turns face up at once and the banner goes; nothing else changes.
-      const hand = state.hand.reveal !== null ? { ...state.hand, reveal: null } : state.hand;
+      // A squeezed card turns face up at once and the banner goes; nothing else changes.
+      const hand = state.hand.reveal !== null || state.hand.faceDown !== null ? { ...state.hand, reveal: null, faceDown: null } : state.hand;
       if (hand === state.hand && state.celebration === null) return state;
       return { ...state, hand, celebration: null };
     }
@@ -268,6 +268,13 @@ export function cardsOnFelt(hand: HandDisplay): Card[] {
   return out;
 }
 
+/** The cards on the felt anyone can see: all of them but a squeezed third card still lying face down. */
+export function faceUpCards(hand: HandDisplay): Card[] {
+  const hidden = hand.faceDown === 'player' ? hand.playerCards[2] : hand.faceDown === 'banker' ? hand.bankerCards[2] : undefined;
+  const cards = cardsOnFelt(hand);
+  return hidden === undefined ? cards : cards.filter((c) => c !== hidden);
+}
+
 /** What the rest of the view (roads, bankroll, shoe, counts, stats) should show right now. */
 export interface TableView {
   results: readonly HandResult[];
@@ -310,6 +317,7 @@ export function deriveView(anim: AnimState, live: SessionState): TableView {
       live: false,
     };
   }
+  // Every card on the felt has left the shoe, but a squeezed card is only counted once it is turned.
   const dealt = cardsOnFelt(anim.hand);
   const settled = anim.settled;
   const shoe: ShoeInfo = {
@@ -324,7 +332,7 @@ export function deriveView(anim: AnimState, live: SessionState): TableView {
     results: settled ? [...held.shoeHistory, result] : held.shoeHistory,
     bankroll: anim.bankroll ?? held.bankroll,
     shoe,
-    seenCards: [...held.seenCards, ...dealt],
+    seenCards: [...held.seenCards, ...faceUpCards(anim.hand)],
     stats: settled ? live.stats : held.stats,
     rules: live.rules,
     lastBets: live.lastBets,

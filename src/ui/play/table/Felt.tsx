@@ -4,7 +4,7 @@
  * classic rule and the "last hand of the shoe" banner.
  */
 import { useRef, type CSSProperties, type ReactNode } from 'react';
-import type { BetType, Bets, ShoeInfo, TableRules } from '@/engine';
+import type { BetType, Bets, ShoeInfo, Side, TableRules } from '@/engine';
 import { limitsFor } from '@/engine';
 import { cx, formatMoney, type CardSize } from '@/ui/shell';
 import type { ChipStacks } from '../animation/timeline';
@@ -25,7 +25,7 @@ export interface FeltProps {
   announce: string;
   shoe: ShoeInfo;
   dealMs: number;
-  /** How long the card that makes a Dragon 7 / Panda 8 waits face down (0 = ordinary flips). */
+  /** How long a squeezed third card waits face down (0 = ordinary flips). */
   revealMs?: number;
   /** The Dragon 7 / Panda 8 moment being shown. */
   celebration?: Celebration | null;
@@ -87,7 +87,8 @@ export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, reve
   };
 
   const lastHand = shoe.lastHandNext && phase !== 'shuffling';
-  const bonusFor = (side: 'player' | 'banker'): 'dragon7' | 'panda8' | null => (side === 'banker' && hand.dragon7 ? 'dragon7' : side === 'player' && hand.panda8 ? 'panda8' : null);
+  const bonusFor = (side: Side): 'dragon7' | 'panda8' | null => (side === 'banker' && hand.dragon7 ? 'dragon7' : side === 'player' && hand.panda8 ? 'panda8' : null);
+  const squeezed = (side: Side): boolean => hand.reveal === side || hand.reveal === 'both';
 
   return (
     <div className={cx(styles.felt, phone && styles.feltPhone)} style={{ '--deal-ms': `${dealMs}ms` } as CSSProperties} data-phase={phase} data-testid="felt">
@@ -99,8 +100,8 @@ export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, reve
       )}
 
       <div ref={handsRef} className={styles.hands}>
-        <HandArea side="player" cards={hand.playerCards} total={hand.playerTotal} natural={hand.natural === 'player' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('player')} pair={hand.playerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} reveal={hand.reveal === 'player'} revealMs={revealMs} />
-        <HandArea side="banker" cards={hand.bankerCards} total={hand.bankerTotal} natural={hand.natural === 'banker' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('banker')} pair={hand.bankerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} reveal={hand.reveal === 'banker'} revealMs={revealMs} />
+        <HandArea side="player" cards={hand.playerCards} total={hand.playerTotal} natural={hand.natural === 'player' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('player')} pair={hand.playerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} reveal={squeezed('player')} revealMs={revealMs} faceDown={hand.faceDown === 'player'} />
+        <HandArea side="banker" cards={hand.bankerCards} total={hand.bankerTotal} natural={hand.natural === 'banker' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('banker')} pair={hand.bankerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} reveal={squeezed('banker')} revealMs={revealMs} faceDown={hand.faceDown === 'banker'} />
         <ShoeView ref={shoeRef} shoe={shoe} rules={rules} shuffle={shuffle} compact={phone} />
       </div>
 

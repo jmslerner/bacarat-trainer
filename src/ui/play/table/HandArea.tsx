@@ -20,15 +20,17 @@ export interface HandAreaProps {
   size: CardSize;
   dealMs: number;
   shoeRef: RefObject<HTMLElement>;
-  /** This side's third card is revealed with the suspense flip. */
+  /** The dealer squeezes this side's third card: it lands face down and turns as the total is called. */
   reveal?: boolean;
   /** How long that card waits face down. */
   revealMs?: number;
+  /** That card is lying face down right now: nothing names it yet (its label, this hand's label). */
+  faceDown?: boolean;
 }
 
 const NAME: Record<Side, string> = { player: 'Player', banker: 'Banker' };
 
-export function HandArea({ side, cards, total, natural, outcome, bonus, pair, size, dealMs, shoeRef, reveal = false, revealMs = 0 }: HandAreaProps): ReactNode {
+export function HandArea({ side, cards, total, natural, outcome, bonus, pair, size, dealMs, shoeRef, reveal = false, revealMs = 0, faceDown = false }: HandAreaProps): ReactNode {
   // The nominal size for the breakpoint, shrunk when the hand area is too narrow for a three-card hand.
   const [cardsRef, cardsBox] = useElementWidth<HTMLDivElement>();
   const cardWidth = fitCardWidth(cardsBox.width, cardsBox.gap, CARD_SIZES[size]);
@@ -36,7 +38,8 @@ export function HandArea({ side, cards, total, natural, outcome, bonus, pair, si
   const lost = outcome !== null && outcome !== 'tie' && outcome !== side;
   const tie = outcome === 'tie';
   const totalText = total === null ? '—' : String(total);
-  const label = `${NAME[side]}: ${cards.length === 0 ? 'no cards' : `${cards.length} cards, total ${totalText}`}${won ? ', wins' : tie ? ', tie' : ''}`;
+  const hidden = faceDown && cards.length === 3;
+  const label = `${NAME[side]}: ${cards.length === 0 ? 'no cards' : `${cards.length} cards${hidden ? ', the third face down' : ''}, total ${totalText}`}${won ? ', wins' : tie ? ', tie' : ''}`;
 
   return (
     <section className={cx(styles.hand, styles[side], won && styles.handWon, lost && styles.handLost, tie && styles.handTie, bonus === 'dragon7' && styles.handDragon, bonus === 'panda8' && styles.handPanda)} aria-label={label} data-side={side} data-total={total ?? ''} data-bonus={bonus ?? undefined}>
@@ -79,6 +82,7 @@ export function HandArea({ side, cards, total, natural, outcome, bonus, pair, si
               shoeRef={shoeRef}
               dealMs={dealMs}
               revealMs={reveal && i === 2 ? revealMs : 0}
+              faceDown={hidden && i === 2}
               highlight={won && outcome !== null && i === cards.length - 1 && bonus !== null}
               glow={bonus === null ? null : i === cards.length - 1 ? 'strong' : 'soft'}
             />
