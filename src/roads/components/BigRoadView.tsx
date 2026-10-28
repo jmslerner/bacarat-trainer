@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Side } from '@/engine';
 import { bigRoad } from '../bigRoad';
+import { bonusOf } from '../bonus';
 import type { RoadResult } from '../types';
 import { RoadFrame } from './RoadFrame';
 import { BigRoadSymbol, TieMark, cellCenter } from './symbols';
@@ -16,7 +17,10 @@ export interface BigRoadViewProps {
   className?: string;
 }
 
-/** Big road: hollow circles (red B / blue P) with the letter inside, green tie strokes, pair dots, dragon tails. */
+/**
+ * Big road: hollow circles (red B / blue P) with the letter inside, green tie strokes, pair dots, dragon tails; a
+ * Dragon 7 / Panda 8 hand carries a corner medallion (looked up from `results`, so the road algorithm is untouched).
+ */
 export function BigRoadView({ results, cols = 30, rows = 6, prediction = null, className }: BigRoadViewProps) {
   const road = useMemo(() => bigRoad(results, rows), [results, rows]);
   const ghost = useMemo(() => {
@@ -29,6 +33,7 @@ export function BigRoadView({ results, cols = 30, rows = 6, prediction = null, c
   const counts = { player: 0, banker: 0, tie: 0 };
   for (const result of results) counts[result.outcome] += 1;
   const label = `Big road: ${counts.player} Player, ${counts.banker} Banker, ${counts.tie} Tie`;
+  const newest = results.length - 1;
 
   return (
     <RoadFrame
@@ -46,7 +51,14 @@ export function BigRoadView({ results, cols = 30, rows = 6, prediction = null, c
         </g>
       )}
       {road.cells.map((cell, i) => (
-        <BigRoadSymbol key={cell.handIndex} cell={cell} ties={cell.ties + (i === 0 ? road.leadingTies : 0)} />
+        <BigRoadSymbol
+          key={cell.handIndex}
+          cell={cell}
+          ties={cell.ties + (i === 0 ? road.leadingTies : 0)}
+          bonus={bonusOf(results[cell.handIndex])}
+          hand={cell.handIndex + 1}
+          latest={cell.handIndex === newest}
+        />
       ))}
       {ghost !== null && <BigRoadSymbol cell={ghost} ties={0} ghost />}
     </RoadFrame>

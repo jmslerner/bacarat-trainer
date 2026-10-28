@@ -134,3 +134,85 @@ describe('Scoreboard', () => {
     }
   });
 });
+
+describe('Scoreboard: Dragon 7 and Panda 8', () => {
+  it('shows the bonus history between the counts and the Ask buttons: hits in order, then the since lines', () => {
+    // results: Panda 8 on hand 8, Dragon 7 on hand 9, a tie on hand 10
+    const { getByTestId, getAllByTestId, queryByTestId } = render(<Scoreboard results={results} />);
+    const strip = getByTestId('bonus-strip');
+    expect(strip.previousElementSibling?.getAttribute('aria-label')).toBe('Shoe counts');
+    expect(strip.nextElementSibling?.getAttribute('aria-label')).toBe('Ask the roads');
+    expect(strip.hasAttribute('data-latest')).toBe(false);
+
+    const hits = getAllByTestId('bonus-hit');
+    // (the chip's text content also holds the medallion's SVG digit, so read the visible label)
+    expect(hits.map((hit) => hit.lastElementChild?.textContent)).toEqual(['P8 #8', 'D7 #9']);
+    expect(hits.map((hit) => hit.getAttribute('data-kind'))).toEqual(['panda8', 'dragon7']);
+    expect(hits.map((hit) => hit.getAttribute('data-hand'))).toEqual(['8', '9']);
+    expect(hits[0].getAttribute('aria-label')).toBe('Panda 8 on hand 8');
+    expect(hits[1].getAttribute('title')).toBe('Dragon 7 on hand 9 — Banker wins with a three-card 7');
+    expect(hits[0].querySelector('[data-medallion-icon="panda8"]')).not.toBeNull();
+    expect(getByTestId('bonus-hits').getAttribute('role')).toBe('list');
+
+    expect(getByTestId('bonus-since-dragon7').textContent).toBe('Since last Dragon 7: 1 hand (expected about 1 in 44)');
+    expect(getByTestId('bonus-since-panda8').textContent).toBe('Since last Panda 8: 2 hands (expected about 1 in 29)');
+    expect(queryByTestId('bonus-empty')).toBeNull();
+    expect(queryByTestId('bonus-legend')).toBeNull();
+    expect(queryByTestId('bonus-plus-one')).toBeNull();
+  });
+
+  it('shows the empty state with a legend until the first hit', () => {
+    const { getByTestId, queryByTestId, rerender } = render(<Scoreboard results={[]} />);
+    expect(getByTestId('bonus-empty').textContent).toBe('No Dragon 7 or Panda 8 yet this shoe');
+    const legend = getByTestId('bonus-legend').textContent ?? '';
+    expect(legend).toContain('Dragon 7: Banker wins with a three-card 7, about 1 in 44 hands');
+    expect(legend).toContain('Panda 8: Player wins with a three-card 8, about 1 in 29 hands');
+    expect(queryByTestId('bonus-hits')).toBeNull();
+    expect(queryByTestId('bonus-since-dragon7')).toBeNull();
+
+    rerender(<Scoreboard results={seq('P B B')} />);
+    expect(getByTestId('bonus-empty')).toBeTruthy();
+    expect(queryByTestId('bonus-hits')).toBeNull();
+  });
+
+  it('pulses the counter with a "+1", lights the strip and the roads when the newest hand is a hit', () => {
+    const hit = [...seq('B B P'), { outcome: 'banker' as const, dragon7: true }];
+    const { container, getByTestId, rerender } = render(<Scoreboard results={hit} />);
+    const d7 = container.querySelector('[data-count="dragon7"]');
+    expect(d7?.getAttribute('data-latest')).toBe('true');
+    expect(d7?.getAttribute('aria-label')).toBe('Dragon 7: 1'); // the screen-reader label is unchanged
+    expect(d7?.getAttribute('title')).toBe('Dragon 7 × 1 · last D7: hand 4 · this hand · expected about 1 in 44 hands');
+    expect(d7?.querySelector('[data-medallion-icon="dragon7"]')).not.toBeNull();
+    expect(getByTestId('bonus-plus-one').textContent).toBe('+1');
+    expect(d7?.contains(getByTestId('bonus-plus-one'))).toBe(true);
+    expect(getByTestId('bonus-strip').getAttribute('data-latest')).toBe('dragon7');
+    expect(getByTestId('bonus-hit').lastElementChild?.textContent).toBe('D7 #4');
+
+    const p8 = container.querySelector('[data-count="panda8"]');
+    expect(p8?.hasAttribute('data-latest')).toBe(false);
+    expect(p8?.getAttribute('title')).toBe('Panda 8 — none yet this shoe · expected about 1 in 29 hands');
+    expect(p8?.querySelector('[data-medallion-icon="panda8"]')).not.toBeNull();
+
+    // the bead plate and the big road pulse the same hand
+    expect(container.querySelectorAll('[data-road="bead"] [data-hit-pulse="dragon7"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-road="big"] [data-hit-pulse="dragon7"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-hit-pulse]')).toHaveLength(2);
+
+    // the next hand ends the pulse and the chip; the tooltip counts back from the hit
+    rerender(<Scoreboard results={[...hit, ...seq('P')]} />);
+    const after = container.querySelector('[data-count="dragon7"]');
+    expect(after?.hasAttribute('data-latest')).toBe(false);
+    expect(container.querySelector('[data-testid="bonus-plus-one"]')).toBeNull();
+    expect(container.querySelectorAll('[data-hit-pulse]')).toHaveLength(0);
+    expect(after?.getAttribute('title')).toBe('Dragon 7 × 1 · last D7: hand 4 · 1 hand ago · expected about 1 in 44 hands');
+    expect(getByTestId('bonus-strip').hasAttribute('data-latest')).toBe(false);
+    expect(getByTestId('bonus-since-dragon7').textContent).toBe('Since last Dragon 7: 1 hand (expected about 1 in 44)');
+    expect(getByTestId('bonus-since-panda8').textContent).toBe('No Panda 8 in 5 hands (expected about 1 in 29)');
+  });
+
+  it('keeps "Hand N" unique on the board (the Play view and the smoke test look it up by text)', () => {
+    const hit = [...seq('B B P'), { outcome: 'banker' as const, dragon7: true }];
+    const { getAllByText } = render(<Scoreboard results={hit} />);
+    expect(getAllByText(/^Hand \d+$/)).toHaveLength(1);
+  });
+});

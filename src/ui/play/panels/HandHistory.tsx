@@ -1,10 +1,12 @@
 /**
  * HandHistory — newest first: hand number, Player cards/total, Banker cards/total, outcome, bonuses, your net.
+ * A Dragon 7 / Panda 8 hand is tinted gold / pearl and carries its medallion.
  */
 import type { ReactNode } from 'react';
 import type { Card } from '@/engine';
 import { cardShortLabel, cx, formatMoney, isRedSuit } from '@/ui/shell';
 import { HISTORY_LIMIT, type HistoryEntry } from '../history/historyStore';
+import { BonusMedallion } from '../table/BonusMedallion';
 import styles from './Panels.module.css';
 
 export interface HandHistoryProps {
@@ -37,8 +39,15 @@ export function HandHistory({ entries, limit = HISTORY_LIMIT }: HandHistoryProps
         const netText = net === null ? '—' : wagered === 0 ? 'no bet' : Math.abs(net) < 0.005 ? 'push' : formatMoney(net, { signed: true });
         const netClass = net === null || wagered === 0 ? styles.historyNo : net > 0.004 ? styles.tdPositive : net < -0.004 ? styles.tdNegative : undefined;
         const outcomeName = r.outcome === 'player' ? 'Player wins' : r.outcome === 'banker' ? 'Banker wins' : 'Tie';
+        const hit = r.dragon7 ? 'dragon7' : r.panda8 ? 'panda8' : null;
+        const hitName = hit === 'dragon7' ? ', Dragon 7' : hit === 'panda8' ? ', Panda 8' : '';
         return (
-          <li key={e.key} className={styles.historyRow} aria-label={`Hand ${e.sessionHand}: ${outcomeName} ${r.playerTotal} to ${r.bankerTotal}${net !== null && wagered > 0 ? `, net ${formatMoney(net, { signed: true })}` : ''}`}>
+          <li
+            key={e.key}
+            className={cx(styles.historyRow, hit === 'dragon7' && styles.historyDragon, hit === 'panda8' && styles.historyPanda)}
+            data-hit={hit ?? undefined}
+            aria-label={`Hand ${e.sessionHand}: ${outcomeName} ${r.playerTotal} to ${r.bankerTotal}${hitName}${net !== null && wagered > 0 ? `, net ${formatMoney(net, { signed: true })}` : ''}`}
+          >
             <span className={styles.historyNo} title={`Shoe ${e.shoeNumber}, hand ${e.handNumber}`}>
               #{e.sessionHand}
             </span>
@@ -57,6 +66,7 @@ export function HandHistory({ entries, limit = HISTORY_LIMIT }: HandHistoryProps
               <span className={cx(styles.historyNet, netClass)}>{netText}</span>
               {(r.dragon7 || r.panda8 || r.playerPair || r.bankerPair || r.playerNatural || r.bankerNatural) && (
                 <span className={styles.bonuses} aria-hidden="true">
+                  {hit && <BonusMedallion kind={hit} size={16} className={styles.historyMedal} />}
                   {r.dragon7 && <span className={cx(styles.bonus, styles.bonusDragon)}>D7</span>}
                   {r.panda8 && <span className={cx(styles.bonus, styles.bonusPanda)}>P8</span>}
                   {r.playerPair && <span className={cx(styles.bonus, styles.bonusPair)}>PP</span>}

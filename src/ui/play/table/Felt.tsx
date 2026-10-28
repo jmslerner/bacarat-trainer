@@ -8,8 +8,9 @@ import type { BetType, Bets, ShoeInfo, TableRules } from '@/engine';
 import { limitsFor } from '@/engine';
 import { cx, formatMoney, type CardSize } from '@/ui/shell';
 import type { ChipStacks } from '../animation/timeline';
-import type { HandDisplay, LayoutDisplay, Phase, ShuffleDisplay } from '../animation/types';
+import type { Celebration, HandDisplay, LayoutDisplay, Phase, ShuffleDisplay } from '../animation/types';
 import { BetSpot } from './BetSpot';
+import { BonusCelebration } from './BonusCelebration';
 import { DealerBar } from './DealerBar';
 import { HandArea } from './HandArea';
 import { ShoeView } from './ShoeView';
@@ -24,6 +25,10 @@ export interface FeltProps {
   announce: string;
   shoe: ShoeInfo;
   dealMs: number;
+  /** How long the card that makes a Dragon 7 / Panda 8 waits face down (0 = ordinary flips). */
+  revealMs?: number;
+  /** The Dragon 7 / Panda 8 moment being shown. */
+  celebration?: Celebration | null;
   /** Chips as dealt / settled; null shows the live layout. */
   layout: LayoutDisplay | null;
   liveBets: Bets;
@@ -40,7 +45,7 @@ export interface FeltProps {
   onRemove: (bet: BetType) => void;
 }
 
-export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, layout, liveBets, liveStacks, selectedChip, betting, showTips, commission, phone, tablet, onAdd, onRemove }: FeltProps): ReactNode {
+export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, revealMs = 0, celebration = null, layout, liveBets, liveStacks, selectedChip, betting, showTips, commission, phone, tablet, onAdd, onRemove }: FeltProps): ReactNode {
   const shoeRef = useRef<HTMLDivElement>(null);
   const cardSize: CardSize = phone ? 'sm' : tablet ? 'md' : 'lg';
   const chipSize = phone ? 30 : tablet ? 36 : 42;
@@ -73,6 +78,7 @@ export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, layo
         denominations={rules.chipDenominations}
         chipSize={chipSize}
         compact={compact}
+        celebrate={celebration !== null && celebration.kind === def.bet}
         onAdd={onAdd}
         onRemove={onRemove}
       />
@@ -92,8 +98,8 @@ export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, layo
       )}
 
       <div className={styles.hands}>
-        <HandArea side="player" cards={hand.playerCards} total={hand.playerTotal} natural={hand.natural === 'player' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('player')} pair={hand.playerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} />
-        <HandArea side="banker" cards={hand.bankerCards} total={hand.bankerTotal} natural={hand.natural === 'banker' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('banker')} pair={hand.bankerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} />
+        <HandArea side="player" cards={hand.playerCards} total={hand.playerTotal} natural={hand.natural === 'player' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('player')} pair={hand.playerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} reveal={hand.reveal === 'player'} revealMs={revealMs} />
+        <HandArea side="banker" cards={hand.bankerCards} total={hand.bankerTotal} natural={hand.natural === 'banker' || hand.natural === 'both'} outcome={hand.outcome} bonus={bonusFor('banker')} pair={hand.bankerPair} size={cardSize} dealMs={dealMs} shoeRef={shoeRef} reveal={hand.reveal === 'banker'} revealMs={revealMs} />
         <ShoeView ref={shoeRef} shoe={shoe} rules={rules} shuffle={shuffle} compact={phone} />
       </div>
 
@@ -128,6 +134,8 @@ export function Felt({ rules, hand, phase, shuffle, announce, shoe, dealMs, layo
         <div className={styles.arcLine} aria-hidden="true" />
         {arcRow.map((def) => renderSpot(def, false))}
       </div>
+
+      <BonusCelebration celebration={celebration} phone={phone} />
     </div>
   );
 }

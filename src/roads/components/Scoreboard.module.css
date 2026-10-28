@@ -76,13 +76,6 @@
 .board[data-size='wide'] .strip {
   grid-area: strip;
   align-self: end;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.board[data-size='wide'] .ask {
-  margin-left: 0;
 }
 
 .board[data-size='wide'] .askStatus {
@@ -113,9 +106,9 @@
 
 .strip {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   min-width: 0;
   padding-top: 8px;
   border-top: 1px solid rgba(242, 234, 215, 0.12);
@@ -203,23 +196,250 @@
   background: var(--banker, #c8102e);
 }
 
-.badge {
+/* Dragon 7 / Panda 8 counters: the medallion icon pulses and a "+1" chip floats up when the newest hand hit. */
+.medal {
   display: inline-grid;
   place-items: center;
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  background: var(--gold, #d4af37);
-  color: #141008;
+}
+
+.count[data-latest='true'] .medal {
+  animation: bonus-count-pulse 0.7s ease-in-out 3;
+}
+
+.count[data-count='dragon7'] {
+  --pulse: rgba(233, 161, 24, 0.65);
+}
+
+.count[data-count='panda8'] {
+  --pulse: rgba(233, 228, 242, 0.6);
+}
+
+@keyframes bonus-count-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+
+  50% {
+    transform: scale(1.35);
+    filter: drop-shadow(0 0 4px var(--pulse, rgba(233, 161, 24, 0.65)));
+  }
+}
+
+.plusOne {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--gold-light, #f1d678);
+  color: var(--ink, #16110b);
   font-size: 9px;
   font-weight: 800;
-  line-height: 1;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  animation: bonus-plus-one 2.4s var(--ease-out, ease-out) both;
+}
+
+.count[data-count='panda8'] .plusOne {
+  background: var(--panda, #e9e4f2);
+}
+
+@keyframes bonus-plus-one {
+  0% {
+    opacity: 0;
+    transform: translateY(5px) scale(0.7);
+  }
+
+  12%,
+  70% {
+    opacity: 1;
+    transform: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
 }
 
 .streak {
   font-size: 11px;
   letter-spacing: 0.06em;
   opacity: 0.8;
+}
+
+/* --- Dragon 7 / Panda 8 history ---------------------------------------------------------------------- */
+
+.bonus {
+  --bamboo: #3d7f2b;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 6px 8px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(233, 161, 24, 0.22);
+  background: linear-gradient(180deg, rgba(233, 161, 24, 0.07), rgba(233, 161, 24, 0.02));
+  transition:
+    border-color 0.4s,
+    box-shadow 0.4s;
+}
+
+.bonus[data-latest='dragon7'] {
+  border-color: rgba(233, 161, 24, 0.6);
+  box-shadow: 0 0 16px rgba(233, 161, 24, 0.2);
+}
+
+.bonus[data-latest='panda8'] {
+  border-color: rgba(233, 228, 242, 0.55);
+  box-shadow: 0 0 16px rgba(233, 228, 242, 0.16);
+}
+
+.bonusHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+}
+
+.bonusKey {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-display, 'Cinzel', Georgia, 'Times New Roman', serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold, #d4af37);
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.bonusHits {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 0 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 234, 215, 0.25) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bonusHits::-webkit-scrollbar {
+  height: 5px;
+}
+
+.bonusHits::-webkit-scrollbar-thumb {
+  background: rgba(242, 234, 215, 0.25);
+  border-radius: 3px;
+}
+
+.bonusHits:focus-visible {
+  outline: 2px solid var(--gold, #d4af37);
+  outline-offset: 2px;
+}
+
+.bonusHit {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 234, 215, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.bonusHitDragon {
+  border-color: rgba(233, 161, 24, 0.45);
+  color: var(--gold-light, #f1d678);
+}
+
+.bonusHitPanda {
+  border-color: rgba(233, 228, 242, 0.4);
+  color: var(--panda, #e9e4f2);
+}
+
+.bonusHitNew {
+  animation: bonus-chip-in 0.5s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
+}
+
+.bonusHitDragon.bonusHitNew {
+  box-shadow: 0 0 10px rgba(233, 161, 24, 0.35);
+}
+
+.bonusHitPanda.bonusHitNew {
+  box-shadow: 0 0 10px rgba(233, 228, 242, 0.3);
+}
+
+@keyframes bonus-chip-in {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.bonusEmpty,
+.bonusSince,
+.bonusLegend {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+
+.bonusSince {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bonusLegend {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10.5px;
+  opacity: 0.72;
+}
+
+.bonusLegendItem {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+
+.bonusLegendItem > svg {
+  margin-top: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .count[data-latest='true'] .medal,
+  .bonusHitNew,
+  .plusOne {
+    animation: none;
+  }
+
+  /* Static state: the chip simply shows until the next hand. */
+  .plusOne {
+    opacity: 1;
+  }
 }
 
 /* --- ask road --------------------------------------------------------------------------------------- */
@@ -229,7 +449,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
 }
 
 .askBtn {

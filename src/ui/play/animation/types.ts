@@ -10,6 +10,9 @@ import type { SoundName } from '@/ui/shell';
 
 export type Phase = 'idle' | 'dealing' | 'settling' | 'settled' | 'shuffling';
 
+/** The two side bets the table celebrates. */
+export type BonusKind = 'dragon7' | 'panda8';
+
 export interface HandDisplay {
   playerCards: Card[];
   bankerCards: Card[];
@@ -31,6 +34,13 @@ export interface HandDisplay {
   cutCard: boolean;
   /** Index of the step being shown (−1 before the first). */
   step: number;
+  /**
+   * The side whose third card is being revealed with the suspense flip: it lies face down while the drum rolls
+   * and turns when the total is called (a Dragon 7 / Panda 8 is on its way). null = ordinary flips.
+   */
+  reveal: Side | null;
+  /** The current call is the hit itself ("Dragon 7!" / "Panda 8!"): the dealer bar shows it large. */
+  hit: BonusKind | null;
 }
 
 export interface SpotDisplay {
@@ -55,6 +65,25 @@ export interface ShuffleDisplay {
   burned: number;
 }
 
+/** The Dragon 7 / Panda 8 moment: what the celebration overlay shows and how long it holds. */
+export interface Celebration {
+  /** Unique per hand and kind: effects (particles, sound, pulses) run once per id, re-renders never re-trigger them. */
+  id: string;
+  kind: BonusKind;
+  /** The side that won with the three-card total. */
+  side: Side;
+  /** Odds paid (40 for "40 to 1"). */
+  pays: number;
+  /** Net won on the Dragon 7 / Panda 8 bet (0 without one). */
+  won: number;
+  /** The player had the bet on the layout. */
+  hadBet: boolean;
+  /** An EZ Banker bet pushes on the Dragon 7. */
+  bankerPush: boolean;
+  /** How long the moment is held before the banner fades (the settlement follows at animated speeds). */
+  holdMs: number;
+}
+
 export type FrameEvent = 'settled' | 'done';
 
 /** One keyframe of the table: whatever it carries is applied at `at` milliseconds from the start. */
@@ -71,6 +100,8 @@ export interface Frame {
   /** Text for the settlement status region ("You won $25"). */
   announce?: string;
   event?: FrameEvent;
+  /** Show the Dragon 7 / Panda 8 celebration (null clears it; undefined leaves it alone). */
+  celebrate?: Celebration | null;
 }
 
 export function emptyHand(message = 'Place your bets'): HandDisplay {
@@ -89,5 +120,7 @@ export function emptyHand(message = 'Place your bets'): HandDisplay {
     bankerPair: false,
     cutCard: false,
     step: -1,
+    reveal: null,
+    hit: null,
   };
 }

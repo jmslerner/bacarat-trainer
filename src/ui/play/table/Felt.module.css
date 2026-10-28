@@ -133,14 +133,17 @@
 }
 .feltPhone .cards { min-height: calc(54px * 1.4); gap: 6px; }
 
-/* card slide + flip */
+/* card slide + flip: the outer element slides from the shoe, the inner one holds the two faces */
 .cardFlip {
   --dx: 220px;
   --dy: -120px;
+  --reveal-ms: 0ms;
   position: relative;
   flex: none;
   transform-style: preserve-3d;
+  border-radius: 7%;
 }
+.cardInner { position: relative; transform-style: preserve-3d; }
 .cardAnimated { animation: dealIn var(--deal-ms) cubic-bezier(0.25, 0.9, 0.3, 1) both; }
 .cardFace, .cardBack { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .cardBack { position: absolute; inset: 0; transform: rotateY(180deg); }
@@ -150,6 +153,37 @@
   52% { transform: translate3d(0, 0, 0) rotateY(180deg) scale(1); }
   100% { transform: translate3d(0, 0, 0) rotateY(0deg) scale(1); }
 }
+/* the suspense reveal: the card lands face down, waits under a soft gold breath, then turns as the total is called */
+.cardSuspense { animation: cardSlide var(--deal-ms) cubic-bezier(0.25, 0.9, 0.3, 1) both; }
+.cardSuspense .cardInner { animation: cardTurn calc(var(--deal-ms) * 0.65) cubic-bezier(0.4, 0, 0.2, 1) var(--reveal-ms) both; }
+.cardSuspense::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 12%;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px rgba(241, 214, 120, 0.45), 0 0 28px 8px rgba(241, 214, 120, 0.5);
+  opacity: 0;
+  animation: cardWait var(--reveal-ms) ease-in-out both;
+}
+@keyframes cardSlide {
+  0% { transform: translate3d(var(--dx), var(--dy), 0) scale(0.86); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes cardTurn { from { transform: rotateY(180deg); } to { transform: rotateY(0deg); } }
+@keyframes cardWait { 0% { opacity: 0; } 35% { opacity: 1; } 70% { opacity: 0.55; } 100% { opacity: 0; } }
+/* the reveal was fast-forwarded: face up at once */
+.cardSnapped .cardInner { animation: none; transform: none; }
+/* the celebration's light on the winning hand: every card softly, the card that made it brightest */
+.hand { --glow-rgb: 241, 214, 120; }
+.handDragon { --glow-rgb: 255, 183, 60; }
+.handPanda { --glow-rgb: 233, 228, 242; }
+.cardGlow::after, .cardGlowStrong::after { content: ''; position: absolute; inset: 0; border-radius: 7%; pointer-events: none; }
+.cardGlow::after { box-shadow: 0 0 14px 2px rgba(var(--glow-rgb), 0.45); animation: cardGlowSoft 1.1s ease-in-out 3; }
+.cardGlowStrong::after { box-shadow: 0 0 0 2px rgba(var(--glow-rgb), 0.85), 0 0 30px 8px rgba(var(--glow-rgb), 0.6); animation: cardGlowStrong 1.1s ease-in-out 3; }
+@keyframes cardGlowSoft { 50% { box-shadow: 0 0 26px 8px rgba(var(--glow-rgb), 0.75); } }
+@keyframes cardGlowStrong { 50% { box-shadow: 0 0 0 3px rgba(var(--glow-rgb), 1), 0 0 48px 16px rgba(var(--glow-rgb), 0.9); } }
 
 .totalWrap { display: flex; align-items: center; gap: 10px; min-height: 36px; }
 .totalLabel { font-size: var(--text-xs); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ivory-muted); font-weight: 600; }
@@ -347,6 +381,33 @@
 }
 .callDragon { background: var(--dragon); box-shadow: 0 0 16px rgba(233, 161, 24, 0.5); }
 .callPanda { background: var(--panda); box-shadow: 0 0 16px rgba(233, 228, 242, 0.45); }
+/* the hit call itself — "Dragon 7!" / "Panda 8!" — set large in glowing gold or pearl */
+.callHitRow { min-height: 40px; }
+.call .callHit {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  padding-left: 0.14em;
+  animation: hitIn 0.7s var(--ease-spring) both;
+}
+.call .callHit.callHitDragon {
+  background: linear-gradient(180deg, #fff6cf 0%, #f1d678 42%, #d4af37 68%, #a07a1f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 10px rgba(233, 161, 24, 0.8)) drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6));
+}
+.call .callHit.callHitPanda {
+  background: linear-gradient(180deg, #ffffff 0%, #ebe8f3 48%, #a9a8b4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 10px rgba(233, 228, 242, 0.75)) drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6));
+}
+@keyframes hitIn { 0% { opacity: 0; transform: scale(0.55); } 100% { opacity: 1; transform: none; } }
+.feltPhone .call .callHit { font-size: var(--text-xl); }
 .tip {
   margin: 0;
   max-width: 70ch;
@@ -553,6 +614,11 @@
 .spotWin { border-color: var(--gold-light); box-shadow: 0 0 0 1px var(--gold-dark), 0 0 26px var(--gold-glow); background-color: rgba(241, 214, 120, 0.08); }
 .spotLose { opacity: 0.72; }
 .spotPush { box-shadow: 0 0 0 1px rgba(199, 191, 174, 0.5); }
+/* the Dragon 7 / Panda 8 spot beats in its own colour while its moment plays */
+.spotCelebrate { animation: spotCelebrate 0.7s ease-in-out 4; border-color: var(--spot); }
+@keyframes spotCelebrate {
+  50% { box-shadow: 0 0 0 5px rgba(var(--spot-rgb), 0.4), 0 0 42px 6px rgba(var(--spot-rgb), 0.8); background-color: rgba(var(--spot-rgb), 0.2); }
+}
 
 /* ---- commission box -------------------------------------------------------- */
 .commissionBox {
@@ -573,3 +639,112 @@
 .commissionLine { display: flex; justify-content: space-between; gap: 10px; color: var(--ivory-dim); }
 .commissionLine strong { color: var(--ivory); }
 .bandPhone .commissionBox { flex: 1 1 100%; flex-direction: row; justify-content: space-between; align-items: center; min-width: 0; padding: 8px 10px; }
+
+/* ==========================================================================
+   The Dragon 7 / Panda 8 moment: felt flash, particle canvas, medallion banner.
+   Lives inside the felt (clipped by its corners), never takes the pointer.
+   ========================================================================== */
+.felt > .fx {
+  --fx-rgb: 233, 161, 24;
+  --fx-centre: 46%;
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.fxDragon { --fx-rgb: 233, 161, 24; }
+.fxPanda { --fx-rgb: 233, 228, 242; }
+.fxFlash { position: absolute; inset: 0; opacity: 0; mix-blend-mode: screen; animation: fxFlash 1.5s ease-out both; }
+.fxDragon .fxFlash { background: radial-gradient(ellipse 72% 62% at 50% 45%, rgba(255, 190, 70, 0.78), rgba(255, 120, 30, 0.3) 45%, rgba(255, 90, 20, 0) 72%); }
+.fxPanda .fxFlash { background: radial-gradient(ellipse 72% 62% at 50% 45%, rgba(255, 255, 255, 0.72), rgba(95, 214, 142, 0.28) 45%, rgba(95, 214, 142, 0) 72%); }
+@keyframes fxFlash { 0% { opacity: 0; } 10% { opacity: 1; } 100% { opacity: 0; } }
+.fxCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.fxLeaving .fxCanvas { transition: opacity 0.5s ease-in; opacity: 0; }
+
+.fxBanner {
+  position: absolute;
+  left: 50%;
+  top: var(--fx-centre);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 18px 36px 16px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(var(--fx-rgb), 0.9);
+  background:
+    radial-gradient(ellipse 120% 90% at 50% 0%, rgba(var(--fx-rgb), 0.18), rgba(0, 0, 0, 0) 60%),
+    rgba(5, 18, 11, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 0 5px rgba(var(--fx-rgb), 0.14), 0 0 60px rgba(var(--fx-rgb), 0.45), 0 24px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  text-align: center;
+  animation: fxBannerIn 0.6s cubic-bezier(0.2, 1.4, 0.3, 1) both;
+}
+.fxLeaving .fxBanner { animation: fxBannerOut 0.5s ease-in both; }
+@keyframes fxBannerIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes fxBannerOut { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -58%) scale(0.94); } }
+
+.fxMedallion {
+  display: block;
+  filter: drop-shadow(0 0 14px rgba(var(--fx-rgb), 0.6)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5));
+  animation: fxMedal 0.9s cubic-bezier(0.2, 1.4, 0.3, 1) both;
+}
+@keyframes fxMedal { 0% { transform: scale(0.3) rotate(-25deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+
+.fxTitle {
+  position: relative;
+  margin-top: 4px;
+  padding-left: 0.16em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.7rem, 4.2vw, 2.7rem);
+  letter-spacing: 0.16em;
+  line-height: 1.05;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #fff6cf 0%, #f1d678 40%, #d4af37 65%, #9a7620 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 0 16px rgba(var(--fx-rgb), 0.45));
+}
+.fxPanda .fxTitle {
+  background: linear-gradient(180deg, #ffffff 0%, #eeecf5 45%, #c4c3cf 70%, #8e8d99 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+/* the shine sweep: the same word in a moving highlight, clipped to the glyphs */
+.fxTitle::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  padding-left: inherit;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0) 62%);
+  background-size: 250% 100%;
+  background-position: 150% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fxShine 1.5s ease-in-out 0.45s both;
+}
+@keyframes fxShine { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
+.fxRule { font-family: var(--font-body); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ivory-dim); }
+.fxPayout { font-family: var(--font-body); font-size: var(--text-sm); font-weight: 500; letter-spacing: 0.04em; color: var(--ivory); font-variant-numeric: tabular-nums; }
+.fxWon { color: var(--win); font-weight: 700; }
+.fxNoBet { color: var(--ivory-dim); }
+.fxSep { color: var(--ivory-muted); }
+
+/* phones: a tighter plaque that fits a 380px felt */
+.fxPhone .fxBanner { gap: 4px; max-width: calc(100% - 20px); padding: 12px 18px 12px; border-radius: 16px; }
+.fxPhone .fxTitle { font-size: 1.55rem; letter-spacing: 0.12em; }
+.fxPhone .fxRule { font-size: 0.6rem; letter-spacing: 0.14em; }
+.fxPhone .fxPayout { max-width: 300px; font-size: var(--text-xs); white-space: normal; }
+
+/* reduced motion: no flash and no particles are rendered; nothing moves — the banner appears and goes */
+.fxStatic .fxBanner, .fxStatic .fxMedallion, .fxStatic .fxTitle::after { animation: none; }

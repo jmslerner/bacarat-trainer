@@ -57,6 +57,15 @@
 .bankrollPlaque { min-width: 150px; }
 .bankrollValue { display: inline-block; font-variant-numeric: tabular-nums; font-size: 1.05em; color: var(--ivory); }
 .limitsPlaque { min-width: 0; }
+/* a won Dragon 7 / Panda 8: the plaque beats in the hit's colour while the moment plays */
+.plaqueDragon { --pulse-rgb: 233, 161, 24; animation: plaquePulse 0.75s ease-in-out 4; }
+.plaquePanda { --pulse-rgb: 233, 228, 242; animation: plaquePulse 0.75s ease-in-out 4; }
+@keyframes plaquePulse {
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 1px var(--gold-dark), 0 0 0 3px #1a0d06, 0 0 0 4px var(--gold-dark), 0 0 0 7px rgba(var(--pulse-rgb), 0.3), 0 0 32px rgba(var(--pulse-rgb), 0.85), var(--shadow-md);
+  }
+}
 
 /* ---- controls ---- */
 .controls {

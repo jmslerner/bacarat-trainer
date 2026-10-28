@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { TABLE_LEVELS, tableLevelOf } from '@/engine';
 import type { TableRules } from '@/engine';
 import { Button, Chip, Plaque, Select, Tooltip, cx, formatLimitRange, formatMoney, tableLevelLabel, DEAL_SPEEDS, type DealSpeed } from '@/ui/shell';
-import type { Phase } from '../animation/types';
+import type { Celebration, Phase } from '../animation/types';
 import styles from './Rail.module.css';
 
 export interface Notice {
@@ -44,12 +44,15 @@ export interface RailProps {
   onCoach?: () => void;
   notice: Notice | null;
   phone: boolean;
+  /** The Dragon 7 / Panda 8 moment: the bankroll plaque pulses when the player had the bet. */
+  celebration?: Celebration | null;
 }
 
 const SPEED_OPTIONS = DEAL_SPEEDS.map((s) => ({ value: s.id, label: s.label }));
 
-export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, dealReason, busy, phase, auto, onToggleAuto, speed, onSpeed, rebetAmount, rebetProblem = null, hasBets, onDeal, onRebet, onClear, onUndo, onNewShoe, onBuyIn, onCoach, notice, phone }: RailProps): ReactNode {
+export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, dealReason, busy, phase, auto, onToggleAuto, speed, onSpeed, rebetAmount, rebetProblem = null, hasBets, onDeal, onRebet, onClear, onUndo, onNewShoe, onBuyIn, onCoach, notice, phone, celebration = null }: RailProps): ReactNode {
   const chips = rules.chipDenominations;
+  const jackpot = celebration !== null && celebration.won > 0 ? celebration.kind : null;
   const canDeal = dealReason === null && !busy;
   const dealLabel = busy ? (phase === 'shuffling' ? 'Skip' : 'Fast forward') : 'Deal';
   const limitsSub = `Tie ${formatLimitRange(rules.limits.tie)} · Side ${formatLimitRange(rules.limits.side)}`;
@@ -79,7 +82,7 @@ export function Rail({ rules, selectedChip, onSelectChip, bankroll, onLayout, de
         </div>
 
         <div className={styles.plaques}>
-          <Plaque size="sm" tone="ivory" sub={`On layout ${formatMoney(onLayout)}`} className={styles.bankrollPlaque} data-testid="table-bankroll">
+          <Plaque size="sm" tone="ivory" sub={`On layout ${formatMoney(onLayout)}`} className={cx(styles.bankrollPlaque, jackpot === 'dragon7' && styles.plaqueDragon, jackpot === 'panda8' && styles.plaquePanda)} data-testid="table-bankroll" data-celebrate={jackpot ?? undefined}>
             <span className={styles.bankrollValue} data-value={bankroll}>
               {formatMoney(bankroll)}
             </span>

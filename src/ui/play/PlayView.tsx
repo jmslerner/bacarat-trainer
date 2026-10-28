@@ -8,7 +8,7 @@ import type { BetType, Bets, Side } from '@/engine';
 import { BET_TYPES, limitsEqual, roundCents, totalOnLayout, validateLayout, type ChipPlacement, type GameSession } from '@/engine';
 import { Scoreboard } from '@/roads';
 import { Button, Modal, SettingsDialog, cx, dealSpeedMs, formatMoney, publishDisplayedBankroll, ruleSummary, useIsPhone, useIsTablet, useSession, useSettings, useSound, type DealSpeed } from '@/ui/shell';
-import { autoPauseMs, dealDurationMs, type ChipStacks } from './animation/timeline';
+import { autoPauseMs, dealDurationMs, revealMs, type ChipStacks } from './animation/timeline';
 import type { FrameEvent } from './animation/types';
 import { deriveView, useTableAnimation, type CurrentHand } from './animation/useTableAnimation';
 import { historyExtremes, recordHand, syncHistory, useHistory } from './history/historyStore';
@@ -158,6 +158,25 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
     publishDisplayedBankroll({ bankroll: view.bankroll, net: roundCents(view.bankroll - view.stats.startingBankroll) });
   }, [view.bankroll, view.stats.startingBankroll]);
   useEffect(() => () => publishDisplayedBankroll(null), []);
+
+  // A won Dragon 7 / Panda 8 is marked on <body> while its moment plays, so the top bar's bankroll pill (which
+  // lives in the shell) pulses with the table's plaque (see PlayView.module.css).
+  useEffect(() => {
+    const c = anim.celebration;
+    if (!c || c.won <= 0) return;
+    try {
+      document.body.setAttribute('data-celebrate', c.kind);
+    } catch {
+      /* ignore */
+    }
+    return () => {
+      try {
+        document.body.removeAttribute('data-celebrate');
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [anim.celebration]);
 
   // A new table (the limits changed) hands you its base chip; a chip that left the tray is no longer in hand.
   const seenLimits = useRef(live.rules.limits);
@@ -417,6 +436,8 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
               announce={anim.announce}
               shoe={view.shoe}
               dealMs={dealDurationMs(base)}
+              revealMs={revealMs(base)}
+              celebration={anim.celebration}
               layout={anim.layout}
               liveBets={live.bets}
               liveStacks={liveStacks}
@@ -454,6 +475,7 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
               onCoach={phone && prefs.showCoach ? () => setDrawerOpen(true) : undefined}
               notice={notice}
               phone={phone}
+              celebration={anim.celebration}
             />
           </div>
           {!phone && (

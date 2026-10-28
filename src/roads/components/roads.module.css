@@ -125,9 +125,135 @@
   }
 }
 
+/* --- Dragon 7 / Panda 8 medallions ----------------------------------------------------------------- */
+
+/* Mini medallion (big-road corner badge, counter icons, bonus-history chips): gold disc with an ink "7", or
+   pearl-rimmed bamboo-green disc with a pearl "8". */
+.badgeOutline {
+  fill: var(--road-bg, #0b1117);
+}
+
+.badgeGlyph {
+  font-weight: 800;
+}
+
+.badgeSheen {
+  fill: #fff;
+  opacity: 0.3;
+}
+
+.badgeDragon .badgeFace {
+  fill: var(--dragon, #e9a118);
+}
+
+.badgeDragon .badgeRim {
+  stroke: var(--gold-light, #f1d678);
+}
+
+.badgeDragon .badgeGlyph {
+  fill: var(--ink, #16110b);
+}
+
+.badgePanda .badgeFace {
+  fill: var(--bamboo, #3d7f2b);
+}
+
+.badgePanda .badgeRim {
+  stroke: var(--panda, #e9e4f2);
+}
+
+.badgePanda .badgeGlyph {
+  fill: var(--panda, #e9e4f2);
+}
+
+/* The icon version (HTML contexts). */
+.medalIcon {
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+/* Bead-plate medallion: ring + soft halo around the bead, the bold digit on the bead. */
+.medalGlyph {
+  font-weight: 800;
+}
+
+.medalDragon .medalRing {
+  stroke: var(--dragon, #e9a118);
+}
+
+.medalDragon .medalHalo {
+  stroke: var(--dragon, #e9a118);
+  opacity: 0.3;
+}
+
+.medalDragon .medalGlyph {
+  fill: var(--gold-light, #f1d678);
+}
+
+.medalPanda .medalRing {
+  stroke: var(--panda, #e9e4f2);
+}
+
+.medalPanda .medalHalo {
+  stroke: var(--panda, #e9e4f2);
+  opacity: 0.28;
+}
+
+.medalPanda .medalGlyph {
+  fill: var(--panda, #e9e4f2);
+}
+
+.pandaBadge {
+  fill: var(--bamboo, #3d7f2b);
+  stroke: var(--panda, #e9e4f2);
+  stroke-width: 0.7;
+}
+
+.glyphOutline {
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
+/* The newest hit: a ring expands from the cell, three times. */
+.hitPulse {
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: roads-hit-pulse 1s cubic-bezier(0.2, 0.8, 0.2, 1) 3 both;
+}
+
+.pulseDragon {
+  stroke: var(--dragon, #e9a118);
+}
+
+.pulsePanda {
+  stroke: var(--panda, #e9e4f2);
+}
+
+@keyframes roads-hit-pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.95;
+  }
+
+  100% {
+    transform: scale(2.3);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ghost {
     animation: none;
+  }
+
+  /* Static state: the medallion itself, no ripple. */
+  .hitPulse {
+    display: none;
   }
 }
 

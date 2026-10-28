@@ -1,11 +1,26 @@
 /**
  * SessionStatsPanel — wins/losses by bet type, biggest win and loss, peak/low bankroll, drawdown, commission.
+ * The Dragon 7 / Panda 8 counters pulse once each time they go up.
  */
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SessionStats } from '@/engine';
 import { BET_LABELS, BET_TYPES } from '@/engine';
 import { Stat, cx, formatMoney, toneForNet } from '@/ui/shell';
 import styles from './Panels.module.css';
+
+/**
+ * A counter that pulses when it is (re)mounted for a new value — keyed by the value by its parent — but not when
+ * the panel itself has just opened: `armed` is false on the panel's first render and the choice is kept for the
+ * life of the element, so later re-renders never start the pulse on a figure that has not changed.
+ */
+function Counter({ value, label, armed, tone, testId }: { value: number; label: string; armed: boolean; tone: 'dragon' | 'panda'; testId: string }): ReactNode {
+  const [pulse] = useState(armed);
+  return (
+    <span className={cx(styles.counter, pulse && styles.counterPulse, tone === 'dragon' ? styles.counterDragon : styles.counterPanda)} data-testid={testId} data-pulse={pulse || undefined}>
+      {value} {label}
+    </span>
+  );
+}
 
 export interface SessionStatsPanelProps {
   stats: SessionStats;
@@ -15,6 +30,11 @@ export interface SessionStatsPanelProps {
 
 export function SessionStatsPanel({ stats, biggestWin, biggestLoss }: SessionStatsPanelProps): ReactNode {
   const rows = BET_TYPES.filter((b) => stats.byBet[b].count > 0);
+  const armedRef = useRef(false);
+  const armed = armedRef.current;
+  useEffect(() => {
+    armedRef.current = true;
+  }, []);
   return (
     <>
       <div className={styles.statGrid}>
@@ -24,7 +44,16 @@ export function SessionStatsPanel({ stats, biggestWin, biggestLoss }: SessionSta
         <Stat label="Low bankroll" size="sm" value={formatMoney(stats.lowBankroll)} />
         <Stat label="Max drawdown" size="sm" tone={stats.maxDrawdown > 0 ? 'negative' : 'neutral'} value={stats.maxDrawdown > 0 ? formatMoney(-stats.maxDrawdown) : '—'} />
         <Stat label="Commission paid" size="sm" value={formatMoney(stats.commissionPaid)} />
-        <Stat label="Naturals" size="sm" value={stats.naturals} sub={`${stats.dragon7s} D7 · ${stats.panda8s} P8`} />
+        <Stat
+          label="Naturals"
+          size="sm"
+          value={stats.naturals}
+          sub={
+            <>
+              <Counter key={`d7-${stats.dragon7s}`} value={stats.dragon7s} label="D7" armed={armed} tone="dragon" testId="stat-dragon7" /> · <Counter key={`p8-${stats.panda8s}`} value={stats.panda8s} label="P8" armed={armed} tone="panda" testId="stat-panda8" />
+            </>
+          }
+        />
         <Stat label="P / B / T" size="sm" value={`${stats.playerWins} / ${stats.bankerWins} / ${stats.ties}`} sub={`${stats.playerPairs} PP · ${stats.bankerPairs} BP`} />
       </div>
       <div className={styles.section}>

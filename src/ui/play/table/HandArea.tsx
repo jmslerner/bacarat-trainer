@@ -20,11 +20,15 @@ export interface HandAreaProps {
   size: CardSize;
   dealMs: number;
   shoeRef: RefObject<HTMLElement>;
+  /** This side's third card is revealed with the suspense flip. */
+  reveal?: boolean;
+  /** How long that card waits face down. */
+  revealMs?: number;
 }
 
 const NAME: Record<Side, string> = { player: 'Player', banker: 'Banker' };
 
-export function HandArea({ side, cards, total, natural, outcome, bonus, pair, size, dealMs, shoeRef }: HandAreaProps): ReactNode {
+export function HandArea({ side, cards, total, natural, outcome, bonus, pair, size, dealMs, shoeRef, reveal = false, revealMs = 0 }: HandAreaProps): ReactNode {
   // The nominal size for the breakpoint, shrunk when the hand area is too narrow for a three-card hand.
   const [cardsRef, cardsBox] = useElementWidth<HTMLDivElement>();
   const cardWidth = fitCardWidth(cardsBox.width, cardsBox.gap, CARD_SIZES[size]);
@@ -35,7 +39,7 @@ export function HandArea({ side, cards, total, natural, outcome, bonus, pair, si
   const label = `${NAME[side]}: ${cards.length === 0 ? 'no cards' : `${cards.length} cards, total ${totalText}`}${won ? ', wins' : tie ? ', tie' : ''}`;
 
   return (
-    <section className={cx(styles.hand, styles[side], won && styles.handWon, lost && styles.handLost, tie && styles.handTie)} aria-label={label} data-side={side} data-total={total ?? ''}>
+    <section className={cx(styles.hand, styles[side], won && styles.handWon, lost && styles.handLost, tie && styles.handTie, bonus === 'dragon7' && styles.handDragon, bonus === 'panda8' && styles.handPanda)} aria-label={label} data-side={side} data-total={total ?? ''} data-bonus={bonus ?? undefined}>
       <header className={styles.handHeader}>
         <h3 className={styles.handName}>{NAME[side]}</h3>
         {pair && (
@@ -67,7 +71,17 @@ export function HandArea({ side, cards, total, natural, outcome, bonus, pair, si
           </>
         ) : (
           cards.map((card, i) => (
-            <DealtCard key={card.id} card={card} rotated={i === 2} size={cardWidth} shoeRef={shoeRef} dealMs={dealMs} highlight={won && outcome !== null && i === cards.length - 1 && bonus !== null} />
+            <DealtCard
+              key={card.id}
+              card={card}
+              rotated={i === 2}
+              size={cardWidth}
+              shoeRef={shoeRef}
+              dealMs={dealMs}
+              revealMs={reveal && i === 2 ? revealMs : 0}
+              highlight={won && outcome !== null && i === cards.length - 1 && bonus !== null}
+              glow={bonus === null ? null : i === cards.length - 1 ? 'strong' : 'soft'}
+            />
           ))
         )}
       </div>

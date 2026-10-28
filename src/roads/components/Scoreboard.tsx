@@ -1,10 +1,13 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Side } from '@/engine';
+import { bonusCountTitle, bonusHistory, type BonusKind } from '../bonus';
 import { predictNext } from '../derived';
 import { roadStats } from '../stats';
 import { DERIVED_KINDS, DERIVED_LABELS, type DerivedKind, type Prediction, type RoadColor, type RoadResult } from '../types';
 import { BeadPlateView } from './BeadPlateView';
 import { BigRoadView } from './BigRoadView';
+import { BonusMedallion } from './BonusMedallion';
+import { BonusStrip } from './BonusStrip';
 import { DerivedRoadView } from './DerivedRoadView';
 import { OUTCOME_LETTER, OUTCOME_NAME, cls } from './symbols';
 import roadStyles from './roads.module.css';
@@ -129,11 +132,16 @@ interface CountItem {
   value: number;
   icon: ReactNode;
   abbr?: string;
+  /** Dragon 7 / Panda 8 counters: a tooltip with the last hit, and a pulse + "+1" when the newest hand hit. */
+  bonus?: BonusKind;
+  title?: string;
+  latest?: boolean;
 }
 
 /**
  * The casino display: bead plate left, big road top right, the three derived roads below it, a counts strip
- * (P/B/T, pairs, D7, P8, hand count) and "Ask P" / "Ask B" buttons that show what each derived road would get.
+ * (P/B/T, pairs, D7, P8, hand count), the shoe's Dragon 7 / Panda 8 history and "Ask P" / "Ask B" buttons that
+ * show what each derived road would get.
  */
 export function Scoreboard({
   results,
@@ -160,6 +168,7 @@ export function Scoreboard({
   };
 
   const stats = useMemo(() => roadStats(results), [results]);
+  const bonus = useMemo(() => bonusHistory(results), [results]);
   const predictions = useMemo(
     () => ({ player: predictNext(results, 'player'), banker: predictNext(results, 'banker') }),
     [results],
@@ -171,8 +180,26 @@ export function Scoreboard({
     { key: 'tie', label: 'Tie', value: stats.tie, icon: <span className={cls(styles.disc, styles.discTie)}>T</span> },
     { key: 'playerPair', label: 'Player Pair', value: stats.playerPair, icon: <span className={cls(styles.pair, styles.pairPlayer)} />, abbr: 'PP' },
     { key: 'bankerPair', label: 'Banker Pair', value: stats.bankerPair, icon: <span className={cls(styles.pair, styles.pairBanker)} />, abbr: 'BP' },
-    { key: 'dragon7', label: 'Dragon 7', value: stats.dragon7, icon: <span className={styles.badge}>7</span>, abbr: 'D7' },
-    { key: 'panda8', label: 'Panda 8', value: stats.panda8, icon: <span className={styles.badge}>8</span>, abbr: 'P8' },
+    {
+      key: 'dragon7',
+      label: 'Dragon 7',
+      value: stats.dragon7,
+      icon: <BonusMedallion kind="dragon7" />,
+      abbr: 'D7',
+      bonus: 'dragon7',
+      title: bonusCountTitle(bonus.dragon7),
+      latest: bonus.dragon7.latest,
+    },
+    {
+      key: 'panda8',
+      label: 'Panda 8',
+      value: stats.panda8,
+      icon: <BonusMedallion kind="panda8" />,
+      abbr: 'P8',
+      bonus: 'panda8',
+      title: bonusCountTitle(bonus.panda8),
+      latest: bonus.panda8.latest,
+    },
   ];
 
   const streak = stats.currentStreak;
@@ -215,20 +242,45 @@ export function Scoreboard({
         <footer className={styles.strip}>
           <ul className={styles.counts} aria-label="Shoe counts">
             {counts.map((item) => (
-              <li key={item.key} className={styles.count} aria-label={`${item.label}: ${item.value}`} data-count={item.key}>
-                <span aria-hidden="true">{item.icon}</span>
+              <li
+                key={item.key}
+                className={styles.count}
+                aria-label={`${item.label}: ${item.value}`}
+                data-count={item.key}
+                data-latest={item.latest === true ? 'true' : undefined}
+                title={item.title}
+              >
+                {/* Keyed by the hand count so a second hit in a row pulses again. */}
+                <span
+                  key={item.latest === true ? `icon-${results.length}` : 'icon'}
+                  className={item.bonus === undefined ? undefined : styles.medal}
+                  aria-hidden="true"
+                >
+                  {item.icon}
+                </span>
                 {item.abbr !== undefined && (
                   <span className={styles.countAbbr} aria-hidden="true">
                     {item.abbr}
                   </span>
                 )}
                 <span aria-hidden="true">{item.value}</span>
+                {item.latest === true && (
+                  <span
+                    key={`plus-${results.length}`}
+                    className={styles.plusOne}
+                    data-testid="bonus-plus-one"
+                    aria-hidden="true"
+                  >
+                    +1
+                  </span>
+                )}
               </li>
             ))}
             <li className={cls(styles.count, styles.streak)} aria-label={streakLabel} data-count="streak">
               <span aria-hidden="true">{streakText}</span>
             </li>
           </ul>
+          <BonusStrip results={results} />
           <div className={styles.ask} role="group" aria-label="Ask the roads">
             <AskButton side="player" prediction={predictions.player} pressed={asked === 'player'} onToggle={toggle} />
             <AskButton side="banker" prediction={predictions.banker} pressed={asked === 'banker'} onToggle={toggle} />

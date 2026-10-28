@@ -3,9 +3,13 @@
  * AudioContext (jsdom, old browsers) or when the context fails, calls are silent no-ops.
  */
 
-export type SoundName = 'chip' | 'deal' | 'flip' | 'win' | 'lose' | 'push' | 'bonus' | 'click' | 'shuffle';
+/**
+ * 'bonus' is the sparkle of a pair or a natural; 'riser' the drum roll under the card that makes a Dragon 7 /
+ * Panda 8; 'dragon7' the gong and rising run of the Dragon 7; 'panda8' the chime cascade of the Panda 8.
+ */
+export type SoundName = 'chip' | 'deal' | 'flip' | 'win' | 'lose' | 'push' | 'bonus' | 'click' | 'shuffle' | 'riser' | 'dragon7' | 'panda8';
 
-export const SOUND_NAMES: readonly SoundName[] = ['chip', 'deal', 'flip', 'win', 'lose', 'push', 'bonus', 'click', 'shuffle'];
+export const SOUND_NAMES: readonly SoundName[] = ['chip', 'deal', 'flip', 'win', 'lose', 'push', 'bonus', 'click', 'shuffle', 'riser', 'dragon7', 'panda8'];
 
 type Ctx = AudioContext;
 
@@ -245,13 +249,63 @@ class SoundEngine {
         this.tone(ctx, { freq: 98, endFreq: 70, type: 'sine', dur: 0.36, gain: 0.08, attack: 0.02 });
         break;
       case 'bonus': {
-        // Dragon 7 / Panda 8: a sparkling run
+        // a pair or a natural: a sparkling run
         const run = [659.25, 783.99, 987.77, 1174.66, 1318.51, 1567.98];
         run.forEach((f, i) => {
           this.tone(ctx, { freq: f, type: 'sine', at: i * 0.07, dur: 0.4, gain: 0.14, attack: 0.008 });
           this.tone(ctx, { freq: f * 2, type: 'triangle', at: i * 0.07, dur: 0.25, gain: 0.04, attack: 0.008 });
         });
         this.tone(ctx, { freq: 2093, type: 'sine', at: 0.5, dur: 0.6, gain: 0.1, attack: 0.02 });
+        break;
+      }
+      case 'riser': {
+        // the drum roll under a face-down card: soft low taps that quicken, a filtered swell climbing under them
+        let t = 0;
+        for (let i = 0; i < 18 && t < 1.0; i++) {
+          this.burst(ctx, { at: t, dur: 0.05, gain: 0.16 + i * 0.006, attack: 0.002, filter: { type: 'lowpass', freq: 420 + i * 22, q: 1.4 } });
+          this.tone(ctx, { freq: 72, endFreq: 58, type: 'sine', at: t, dur: 0.07, gain: 0.07, attack: 0.002 });
+          t += Math.max(0.038, 0.095 - i * 0.0042);
+        }
+        this.burst(ctx, { dur: 1.05, gain: 0.11, attack: 0.55, filter: { type: 'bandpass', freq: 380, endFreq: 2600, q: 0.9 } });
+        this.tone(ctx, { freq: 110, endFreq: 330, type: 'sine', dur: 1.05, gain: 0.05, attack: 0.4 });
+        break;
+      }
+      case 'dragon7': {
+        // a low gong — the strike, its inharmonic shimmer, the long fundamental — then a run climbing to a held top
+        this.burst(ctx, { dur: 0.09, gain: 0.3, attack: 0.002, filter: { type: 'lowpass', freq: 900, q: 0.8 } });
+        this.tone(ctx, { freq: 82, endFreq: 52, type: 'sine', dur: 1.3, gain: 0.34, attack: 0.012 });
+        this.tone(ctx, { freq: 164, endFreq: 118, type: 'triangle', dur: 0.7, gain: 0.13, attack: 0.01, filter: { type: 'lowpass', freq: 1200 } });
+        for (const [ratio, gain, dur] of [
+          [1.5, 0.06, 0.55],
+          [2.76, 0.045, 0.45],
+          [4.07, 0.03, 0.35],
+        ] as const) {
+          this.tone(ctx, { freq: 110 * ratio, endFreq: 100 * ratio, type: 'sine', dur, gain, attack: 0.004 });
+        }
+        const run = [392, 440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5];
+        run.forEach((f, i) => {
+          this.tone(ctx, { freq: f, type: 'triangle', at: 0.42 + i * 0.075, dur: 0.34, gain: 0.13, attack: 0.008, filter: { type: 'lowpass', freq: 3800 } });
+          this.tone(ctx, { freq: f / 2, type: 'sine', at: 0.42 + i * 0.075, dur: 0.3, gain: 0.05, attack: 0.008 });
+        });
+        this.tone(ctx, { freq: 1046.5, type: 'sine', at: 1.0, dur: 1.0, gain: 0.11, attack: 0.03 });
+        this.tone(ctx, { freq: 2093, type: 'sine', at: 1.0, dur: 0.8, gain: 0.04, attack: 0.03 });
+        this.tone(ctx, { freq: 523.25, type: 'triangle', at: 1.0, dur: 0.9, gain: 0.06, attack: 0.03, filter: { type: 'lowpass', freq: 2400 } });
+        break;
+      }
+      case 'panda8': {
+        // a bright chime cascade: bell tones (each with a high inharmonic partial) tumbling down and climbing back,
+        // a soft wood-block tap at the start and a shimmer on top
+        this.burst(ctx, { dur: 0.05, gain: 0.22, attack: 0.002, filter: { type: 'bandpass', freq: 1100, q: 2 } });
+        this.tone(ctx, { freq: 330, endFreq: 240, type: 'sine', dur: 0.12, gain: 0.12, attack: 0.003 });
+        const bells = [1318.51, 1174.66, 1046.5, 880, 783.99, 880, 1046.5, 1318.51, 1567.98];
+        bells.forEach((f, i) => {
+          const at = 0.08 + i * 0.085;
+          this.tone(ctx, { freq: f, type: 'sine', at, dur: 0.55, gain: 0.11, attack: 0.004 });
+          this.tone(ctx, { freq: f * 2.4, type: 'sine', at, dur: 0.22, gain: 0.035, attack: 0.003 });
+        });
+        this.tone(ctx, { freq: 2637, type: 'sine', at: 0.6, dur: 0.7, gain: 0.035, attack: 0.05 });
+        this.tone(ctx, { freq: 1567.98, type: 'sine', at: 0.85, dur: 0.9, gain: 0.08, attack: 0.03 });
+        this.tone(ctx, { freq: 783.99, type: 'triangle', at: 0.85, dur: 0.8, gain: 0.05, attack: 0.03, filter: { type: 'lowpass', freq: 3000 } });
         break;
       }
       case 'shuffle': {

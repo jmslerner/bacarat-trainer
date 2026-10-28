@@ -4,12 +4,17 @@
  *
  * `base` is the per-step delay of the speed setting (0 = instant: every frame is at 0 and the runner applies them
  * all synchronously, so the table jumps straight to the settled hand).
+ *
+ * A Dragon 7 / Panda 8 is known from the result before a card is dealt, so the timeline stages the moment: the
+ * third card of the winning side waits face down under a drum roll and flips as the total is called (normal and
+ * slow speeds), then the bonus step carries a `Celebration` the felt plays — flash, medallion banner, particles —
+ * and holds longer than an ordinary call before the settlement goes on as usual.
  */
 import { BET_TYPES } from '@/engine';
 import type { BetType, Bets, HandResult, HandSettlement, ShoeInfo, TableRules } from '@/engine';
 import { formatMoney } from '@/ui/shell';
 import { explainSteps } from '../coach/tips';
-import { emptyHand, type Frame, type HandDisplay, type LayoutDisplay, type ShuffleDisplay } from './types';
+import { emptyHand, type BonusKind, type Celebration, type Frame, type HandDisplay, type LayoutDisplay, type ShuffleDisplay } from './types';
 
 /** Step durations as multiples of the base delay. */
 export const TIMING = Object.freeze({
@@ -38,6 +43,24 @@ export function dealDurationMs(base: number): number {
 /** Pause between hands in auto-deal. */
 export function autoPauseMs(base: number): number {
   return Math.max(250, Math.round(base * 1.2));
+}
+
+/**
+ * How long the Dragon 7 / Panda 8 moment holds before the settlement: about 2.6 s at normal speed, 3.5 s slow,
+ * 1.4 s fast. At instant speed the timeline does not wait at all — the banner still shows itself for 1.2 s
+ * without delaying the settlement or the next deal.
+ */
+export function celebrationHoldMs(base: number): number {
+  if (base <= 0) return 1200;
+  return Math.round(Math.min(3500, Math.max(1400, base * 4)));
+}
+
+/**
+ * The suspense before the card that makes a Dragon 7 / Panda 8 turns over: it lies face down this long after it
+ * lands (normal and slow speeds); at fast and instant it is just the ordinary flip.
+ */
+export function revealMs(base: number): number {
+  return base >= 500 ? Math.round(base * 1.6) : 0;
 }
 
 export type ChipStacks = Partial<Record<BetType, readonly number[]>>;
@@ -116,6 +139,41 @@ function settlementSound(settlement: HandSettlement): Frame['sound'] {
   return 'push';
 }
 
+let celebrationSeq = 0;
+
+export interface CelebrationInput {
+  result: HandResult;
+  settlement: HandSettlement;
+  rules: TableRules;
+  /** The layout as dealt. */
+  bets: Bets;
+  holdMs: number;
+}
+
+/**
+ * The Dragon 7 / Panda 8 moment of a hand, or null when there is none to call. The engine adds the bonus step only
+ * when the table has something to say about it (the bet is offered, or the EZ Banker pushes), so a Dragon 7 at a
+ * commission table with the side bet off is a plain Banker win here too.
+ */
+export function buildCelebration({ result, settlement, rules, bets, holdMs }: CelebrationInput): Celebration | null {
+  const kind: BonusKind | null = result.dragon7 ? 'dragon7' : result.panda8 ? 'panda8' : null;
+  if (kind === null) return null;
+  if (!result.steps.some((s) => s.type === 'bonus' && s.kind === kind)) return null;
+  const line = settlement.settlements.find((s) => s.bet === kind);
+  const banker = settlement.settlements.find((s) => s.bet === 'banker');
+  celebrationSeq += 1;
+  return {
+    id: `${kind}-${celebrationSeq}`,
+    kind,
+    side: kind === 'dragon7' ? 'banker' : 'player',
+    pays: kind === 'dragon7' ? rules.dragon7Pays : rules.panda8Pays,
+    won: line && line.result === 'win' ? line.net : 0,
+    hadBet: (bets[kind] ?? 0) > 0,
+    bankerPush: kind === 'dragon7' && banker !== undefined && banker.result === 'push',
+    holdMs,
+  };
+}
+
 /** Frames of the new-shoe procedure: shuffling, cut card placed, burn procedure. */
 export function buildShuffleTimeline(shoe: ShoeInfo, rules: TableRules, base: number, startAt = 0): Frame[] {
   const frames: Frame[] = [];
@@ -152,29 +210,43 @@ export function buildHandTimeline(input: HandTimelineInput): Frame[] {
   const tips = input.tips ? explainSteps(result, rules) : result.steps.map(() => null);
   const frames: Frame[] = [];
   const layout = layoutFromBets(input.bets, input.stacks, rules.chipDenominations);
+  const celebration = buildCelebration({ result, settlement, rules, bets: input.bets, holdMs: celebrationHoldMs(base) });
+  const reveal = celebration ? revealMs(base) : 0;
   let t = 0;
 
   // Clear the previous hand, show the layout being played, close the betting.
   let hand = emptyHand('No more bets');
-  frames.push({ at: 0, phase: 'dealing', hand, layout, bankroll: bankrollBefore, shuffle: null });
+  frames.push({ at: 0, phase: 'dealing', hand, layout, bankroll: bankrollBefore, shuffle: null, celebrate: null });
   t += base * TIMING.clear;
 
-  result.steps.forEach((step, i) => {
-    hand = { ...hand, message: step.message, tip: tips[i], step: i };
+  for (let i = 0; i < result.steps.length; i++) {
+    const step = result.steps[i];
+    hand = { ...hand, message: step.message, tip: tips[i], step: i, hit: null };
     let hold: number = TIMING.decision;
     let sound: Frame['sound'];
     switch (step.type) {
-      case 'deal':
-        if (step.to === 'player') hand.playerCards = [...hand.playerCards, step.card];
+      case 'deal': {
+        const to = step.to;
+        if (to === 'player') hand.playerCards = [...hand.playerCards, step.card];
         else hand.bankerCards = [...hand.bankerCards, step.card];
-        if (step.index === 2) {
-          // The third card changes the total at once, as the dealer calls it.
-          if (step.to === 'player') hand.playerTotal = result.playerTotal;
-          else hand.bankerTotal = result.bankerTotal;
-        }
         hold = TIMING.deal;
         sound = 'deal';
+        if (step.index === 2) {
+          if (reveal > 0 && celebration !== null && to === celebration.side) {
+            // The card that makes the Dragon 7 / Panda 8 lands face down and waits under the drum roll; it turns
+            // over as the dealer calls the total.
+            hand.reveal = to;
+            frames.push({ at: t, hand, sound: 'riser' });
+            t += reveal;
+            hand = { ...hand };
+            sound = 'flip';
+          }
+          // The third card changes the total at once, as the dealer calls it.
+          if (to === 'player') hand.playerTotal = result.playerTotal;
+          else hand.bankerTotal = result.bankerTotal;
+        }
         break;
+      }
       case 'show':
         hand.playerTotal = step.playerTotal;
         hand.bankerTotal = step.bankerTotal;
@@ -200,6 +272,14 @@ export function buildHandTimeline(input: HandTimelineInput): Frame[] {
         hand[step.kind] = true;
         hold = TIMING.bonus;
         sound = 'bonus';
+        if (celebration !== null && step.kind === celebration.kind) {
+          // The moment: its own sound (the gong, the chimes), the overlay, and a longer hold than any call. At
+          // instant speed nothing waits — the banner shows itself for its 1.2 s — and the sound is still played.
+          hand.hit = step.kind;
+          frames.push({ at: t, hand, sound: step.kind, keySound: base <= 0, celebrate: celebration });
+          t += base > 0 ? celebration.holdMs : 0;
+          continue;
+        }
         break;
       case 'cutCard':
         hand.cutCard = true;
@@ -208,7 +288,7 @@ export function buildHandTimeline(input: HandTimelineInput): Frame[] {
     }
     frames.push({ at: t, hand, sound });
     t += base * hold;
-  });
+  }
 
   // Settlement: badges on every spot, payout chips on the winners, the bankroll counts to its new value.
   const settledMessage = describeSettlement(settlement);
@@ -218,7 +298,8 @@ export function buildHandTimeline(input: HandTimelineInput): Frame[] {
     phase: 'settling',
     hand: finalHand,
     layout: settledLayout(layout, settlement, false),
-    sound: settlementSound(settlement),
+    // At instant speed the celebration's sound lands in the same tick: one voice, not two.
+    sound: celebration !== null && base <= 0 ? undefined : settlementSound(settlement),
     keySound: true,
     announce: settledMessage,
     event: 'settled',

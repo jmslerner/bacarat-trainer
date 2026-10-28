@@ -16,7 +16,7 @@ import type { Bets, Card, HandResult, HandSettlement, SessionState, SessionStats
 import type { SoundName } from '@/ui/shell';
 import { FrameRunner } from './runner';
 import { buildHandTimeline, buildShuffleTimeline, type ChipStacks } from './timeline';
-import { emptyHand, type Frame, type FrameEvent, type HandDisplay, type LayoutDisplay, type Phase, type ShuffleDisplay } from './types';
+import { emptyHand, type Celebration, type Frame, type FrameEvent, type HandDisplay, type LayoutDisplay, type Phase, type ShuffleDisplay } from './types';
 
 export interface CurrentHand {
   result: HandResult;
@@ -40,6 +40,8 @@ export interface AnimState {
   /** Frames still pending. */
   running: boolean;
   announce: string;
+  /** The Dragon 7 / Panda 8 moment being shown (null = none). Cleared by the next deal, a skip or a reset. */
+  celebration: Celebration | null;
 }
 
 export type AnimAction =
@@ -47,7 +49,9 @@ export type AnimAction =
   | { type: 'frame'; frame: Frame }
   | { type: 'done' }
   | { type: 'dismissLayout' }
-  | { type: 'reset'; message: string };
+  | { type: 'reset'; message: string }
+  /** The playback was fast-forwarded: whatever was staged for later (the suspense flip, the celebration) is over. */
+  | { type: 'skip' };
 
 export function initialAnimState(message = 'Place your bets'): AnimState {
   return {
@@ -61,13 +65,14 @@ export function initialAnimState(message = 'Place your bets'): AnimState {
     bankroll: null,
     running: false,
     announce: '',
+    celebration: null,
   };
 }
 
 export function animReducer(state: AnimState, action: AnimAction): AnimState {
   switch (action.type) {
     case 'begin':
-      return { ...state, held: action.held, current: action.current, settled: false, running: true, announce: '' };
+      return { ...state, held: action.held, current: action.current, settled: false, running: true, announce: '', celebration: null };
     case 'frame': {
       const f = action.frame;
       return {
@@ -79,7 +84,14 @@ export function animReducer(state: AnimState, action: AnimAction): AnimState {
         bankroll: f.bankroll !== undefined ? f.bankroll : state.bankroll,
         settled: state.settled || f.event === 'settled',
         announce: f.announce ?? state.announce,
+        celebration: f.celebrate !== undefined ? f.celebrate : state.celebration,
       };
+    }
+    case 'skip': {
+      // The suspense card turns face up at once and the banner goes; nothing else changes.
+      const hand = state.hand.reveal !== null ? { ...state.hand, reveal: null } : state.hand;
+      if (hand === state.hand && state.celebration === null) return state;
+      return { ...state, hand, celebration: null };
     }
     case 'done':
       return { ...state, held: null, bankroll: null, running: false, phase: state.phase === 'dealing' || state.phase === 'settling' || state.phase === 'shuffling' ? 'settled' : state.phase };
@@ -185,7 +197,10 @@ export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): 
     [runner, store],
   );
 
-  const skip = useCallback(() => runner.skip(), [runner]);
+  const skip = useCallback(() => {
+    runner.skip();
+    store.dispatch({ type: 'skip' });
+  }, [runner, store]);
   const isBusy = useCallback(() => busyRef.current, []);
 
   const startHand = useCallback(

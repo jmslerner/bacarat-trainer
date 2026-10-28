@@ -4,6 +4,7 @@ import { cleanup, render } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { seq } from '../testHelpers';
+import type { RoadResult } from '../types';
 import { BeadPlateView } from './BeadPlateView';
 import { BigRoadView } from './BigRoadView';
 import { DerivedRoadView } from './DerivedRoadView';
@@ -131,6 +132,15 @@ describe('road frame styling', () => {
     const focusRule = /\.frame:focus-visible\s*\{([^}]*)\}/.exec(withoutComments)?.[1] ?? '';
     expect(focusRule).toMatch(/outline:\s*2px solid/);
   });
+
+  it('hides the hit pulse under prefers-reduced-motion (the medallion itself is the static state)', () => {
+    const css = readFileSync(join(dirname(expect.getState().testPath ?? ''), 'roads.module.css'), 'utf8');
+    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(withoutComments).toMatch(/\.hitPulse\s*\{[^}]*animation:\s*roads-hit-pulse[^}]*\b3\b/);
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\}/.exec(withoutComments)?.[1] ?? '';
+    expect(reduced).toMatch(/\.hitPulse\s*\{[^}]*display:\s*none/);
+    expect(reduced).toMatch(/\.ghost\s*\{[^}]*animation:\s*none/);
+  });
 });
 
 describe('DerivedRoadView', () => {
@@ -172,5 +182,80 @@ describe('DerivedRoadView', () => {
 
     const none = render(<DerivedRoadView results={seq('B')} kind="small" prediction="player" />);
     expect(none.container.querySelector('[data-ghost]')).toBeNull();
+  });
+});
+
+describe('Dragon 7 / Panda 8 markers', () => {
+  it('turns a hit bead into a medallion with an accessible name and pulses only the newest hit', () => {
+    const results: RoadResult[] = [
+      { outcome: 'banker', dragon7: true, bankerPair: true },
+      ...seq('P'),
+      { outcome: 'player', panda8: true, playerPair: true },
+    ];
+    const { container, getByRole } = render(<BeadPlateView results={results} />);
+    const d7 = container.querySelector('[data-medallion="dragon7"]');
+    expect(d7?.getAttribute('data-bead')).toBe('0');
+    expect(d7?.getAttribute('data-bonus')).toBe('7');
+    expect(getByRole('img', { name: 'Hand 1: Banker, Dragon 7' })).toBe(d7);
+    expect(d7?.querySelector('title')?.textContent).toBe('Dragon 7 on hand 1 — Banker wins with a three-card 7');
+    expect(d7?.querySelector('[data-pair="banker"]')).not.toBeNull(); // pair dots survive the medallion
+    expect(d7?.querySelector('[data-hit-pulse]')).toBeNull(); // an older hit does not pulse
+
+    const p8 = getByRole('img', { name: 'Hand 3: Player, Panda 8' });
+    expect(p8.getAttribute('data-medallion')).toBe('panda8');
+    expect(p8.getAttribute('data-bonus')).toBe('8');
+    expect(p8.querySelector('[data-pair="player"]')).not.toBeNull();
+    expect(container.querySelectorAll('[data-hit-pulse]')).toHaveLength(1);
+    expect(p8.querySelector('[data-hit-pulse="panda8"]')).not.toBeNull();
+
+    // plain beads are unchanged: no role, no tooltip, just the letter
+    const plain = container.querySelector('[data-bead="1"]');
+    expect(plain?.hasAttribute('role')).toBe(false);
+    expect(plain?.textContent).toBe('P');
+  });
+
+  it('does not pulse when the newest hand is not a hit', () => {
+    const { container } = render(<BeadPlateView results={[{ outcome: 'banker', dragon7: true }, ...seq('T')]} />);
+    expect(container.querySelector('[data-medallion="dragon7"]')).not.toBeNull();
+    expect(container.querySelector('[data-hit-pulse]')).toBeNull();
+  });
+
+  it('badges the big-road cell and survives a dragon tail with ties and a pair on the cell', () => {
+    // Eight Bankers on six rows: the 7th and 8th turn right along row 6. The 8th is a Dragon 7 with a Banker pair
+    // and two ties follow it, so the cell carries every mark at once.
+    const results: RoadResult[] = [
+      ...seq('B'.repeat(7)),
+      { outcome: 'banker', dragon7: true, bankerPair: true },
+      ...seq('T T'),
+    ];
+    const { container, getByRole } = render(<BigRoadView results={results} />);
+    const cell = getByRole('img', { name: 'Hand 8: Banker, Dragon 7' });
+    expect(cell.getAttribute('data-hit')).toBe('dragon7');
+    expect(cell.getAttribute('data-ties')).toBe('2');
+    expect(cell.querySelector('title')?.textContent).toBe('Dragon 7 on hand 8 — Banker wins with a three-card 7');
+    expect(cell.querySelector('[data-tie-mark="2"]')).not.toBeNull();
+    expect(cell.querySelector('[data-pair="banker"]')).not.toBeNull();
+    expect(cell.querySelector('[data-badge="dragon7"]')).not.toBeNull();
+    // drawn last, so no other mark covers it (the newest hand is a tie: no pulse after it)
+    expect(cell.lastElementChild?.getAttribute('data-badge')).toBe('dragon7');
+    // the cell is the tail cell at (3, 6)
+    const ring = cell.querySelector('circle');
+    expect(ring?.getAttribute('cx')).toBe(String(2.5 * 20));
+    expect(ring?.getAttribute('cy')).toBe(String(5.5 * 20));
+    expect(container.querySelectorAll('[data-hit]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-big-cell]')).toHaveLength(8);
+  });
+
+  it('pulses the newest big-road hit and keeps the ghost cell plain', () => {
+    const results: RoadResult[] = [...seq('P P'), { outcome: 'player', panda8: true }];
+    const { container } = render(<BigRoadView results={results} prediction="player" />);
+    const hit = container.querySelector('[data-hit="panda8"]');
+    expect(hit?.getAttribute('aria-label')).toBe('Hand 3: Player, Panda 8');
+    expect(hit?.querySelector('[data-badge="panda8"]')).not.toBeNull();
+    expect(hit?.querySelector('[data-hit-pulse="panda8"]')).not.toBeNull();
+    const ghost = container.querySelector('[data-ghost]');
+    expect(ghost?.hasAttribute('data-hit')).toBe(false);
+    expect(ghost?.querySelector('[data-badge]')).toBeNull();
+    expect(ghost?.hasAttribute('role')).toBe(false);
   });
 });

@@ -27,6 +27,8 @@ export interface BetSpotProps {
   denominations: readonly number[];
   chipSize: number;
   compact: boolean;
+  /** The spot's own hit is being celebrated (Dragon 7 / Panda 8): it pulses in its colour. */
+  celebrate?: boolean;
   onAdd: (bet: BetType) => void;
   onRemove: (bet: BetType) => void;
 }
@@ -35,7 +37,7 @@ const LONG_PRESS_MS = 520;
 /** A context menu this soon after a touch press is the one the browser synthesizes for the long press itself. */
 const TOUCH_CONTEXT_MENU_MS = 1500;
 
-export function BetSpot({ def, payout, note, chips, amount, display, settling, betting, selectedChip, limits, denominations, chipSize, compact, onAdd, onRemove }: BetSpotProps): ReactNode {
+export function BetSpot({ def, payout, note, chips, amount, display, settling, betting, selectedChip, limits, denominations, chipSize, compact, celebrate = false, onAdd, onRemove }: BetSpotProps): ReactNode {
   const pressTimer = useRef<number | null>(null);
   const suppressClick = useRef(false);
   const touchPressAt = useRef<number | null>(null);
@@ -102,10 +104,11 @@ export function BetSpot({ def, payout, note, chips, amount, display, settling, b
   return (
     <button
       type="button"
-      className={cx(styles.spot, styles[`tone-${def.tone}`], amount > 0 && styles.spotActive, win && styles.spotWin, lose && styles.spotLose, push && styles.spotPush, !betting && styles.spotClosed, compact && styles.spotCompact)}
+      className={cx(styles.spot, styles[`tone-${def.tone}`], amount > 0 && styles.spotActive, win && styles.spotWin, lose && styles.spotLose, push && styles.spotPush, !betting && styles.spotClosed, compact && styles.spotCompact, celebrate && styles.spotCelebrate)}
       data-bet={def.bet}
       data-amount={amount}
       data-result={result ?? undefined}
+      data-celebrate={celebrate || undefined}
       disabled={!betting}
       aria-disabled={!betting}
       aria-label={ariaLabel}

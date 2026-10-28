@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { DEFAULT_RULES, RULE_PRESETS, applyTableLevel, totalOnLayout } from '@/engine';
+import { DEFAULT_RULES, RULE_PRESETS, applyTableLevel, handTotal, totalOnLayout } from '@/engine';
 import { buyInStore, DEFAULT_PREFS, getDisplayedBankroll, getSession, prefsStore, resetSession, rulesStore } from '@/ui/shell';
 import { PlayView, defaultChip } from './PlayView';
 import { clearHistory } from './history/historyStore';
@@ -36,10 +36,14 @@ beforeEach(() => {
   buyInStore.reset();
   prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'instant', sound: false });
   clearHistory();
+  // jsdom has no canvas: the Dragon 7 / Panda 8 particle layer copes with a missing 2D context.
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => null);
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
+  document.body.removeAttribute('data-celebrate');
 });
 
 describe('PlayView — betting', () => {
@@ -550,6 +554,146 @@ describe('PlayView — settlement display', () => {
     expect(rows[0].textContent).toMatch(/\+\$35/);
     expect(rows[1].textContent).toMatch(/D7/);
     expect(rows[1].textContent).toMatch(/\+\$170/);
+  });
+
+  it('the Dragon 7 moment: overlay, big call, glowing cards, pulsing spot, plaque and pill, tinted history row — all cleared by the next deal', () => {
+    const { session } = setup({ bankroll: 1000, seed: 267 });
+    fireEvent.click(spot('banker'));
+    fireEvent.click(chip(5));
+    fireEvent.click(spot('dragon7'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    expect(session.getState().lastHand!.result.dragon7).toBe(true);
+    const overlay = screen.getByTestId('bonus-celebration');
+    expect(overlay.getAttribute('data-kind')).toBe('dragon7');
+    expect(overlay.getAttribute('aria-hidden')).toBe('true');
+    expect(screen.getByTestId('felt').contains(overlay)).toBe(true); // inside the felt, clipped by it
+    expect(screen.getByText('DRAGON 7')).toBeTruthy();
+    expect(screen.getByTestId('bonus-payout').textContent).toBe('Pays 40 to 1 · you won +$200 · Banker bet pushes');
+    // The dealer bar sets the call large; the badge is not doubled while the call is the hit itself.
+    const call = screen.getByTestId('dealer-call');
+    expect(call.querySelector('[data-hit="dragon7"]')!.textContent).toBe('Dragon 7!');
+    expect(call.textContent).toBe('Dragon 7!');
+    // The three Banker cards glow, the third brightest; the spot, the plaque and the top bar's pill pulse.
+    const glows = document.querySelectorAll('[data-side="banker"] [data-glow]');
+    expect(glows).toHaveLength(3);
+    expect(glows[2].getAttribute('data-glow')).toBe('strong');
+    expect(glows[0].getAttribute('data-glow')).toBe('soft');
+    expect(document.querySelectorAll('[data-side="player"] [data-glow]')).toHaveLength(0);
+    expect(spot('dragon7').getAttribute('data-celebrate')).toBe('true');
+    expect(spot('panda8').getAttribute('data-celebrate')).toBeNull();
+    expect(screen.getByTestId('table-bankroll').getAttribute('data-celebrate')).toBe('dragon7');
+    expect(document.body.getAttribute('data-celebrate')).toBe('dragon7');
+    // Settlement went on as usual underneath.
+    expect(screen.getByTestId('settlement-status').textContent).toBe('You won $200');
+    expect(tableBankroll()).toBe('$1,200');
+    // The history row carries the medallion and the tint; the stats counter pulses once.
+    const row = within(screen.getByTestId('hand-history')).getAllByRole('listitem')[0];
+    expect(row.getAttribute('data-hit')).toBe('dragon7');
+    expect(row.querySelector('[data-medallion="dragon7"]')).toBeTruthy();
+    expect(row.getAttribute('aria-label')).toMatch(/Dragon 7/);
+    fireEvent.click(within(screen.getByTestId('stats-panel')).getByRole('button', { name: /Session stats/ }));
+    expect(screen.getByTestId('stat-dragon7').textContent).toBe('1 D7');
+    expect(screen.getByTestId('stat-dragon7').getAttribute('data-pulse')).toBeNull(); // the panel just opened: no pulse for an old figure
+    // The next deal clears the moment at once (hand 2 of this seed is a Tie).
+    fireEvent.keyDown(window, { key: 'r' });
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    expect(session.getState().lastHand!.result.outcome).toBe('tie');
+    expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+    expect(document.body.hasAttribute('data-celebrate')).toBe(false);
+    expect(screen.getByTestId('table-bankroll').getAttribute('data-celebrate')).toBeNull();
+    expect(spot('dragon7').getAttribute('data-celebrate')).toBeNull();
+    expect(document.querySelectorAll('[data-glow]')).toHaveLength(0);
+    expect(screen.getByTestId('dealer-call').querySelector('[data-hit]')).toBeNull();
+    expect(screen.getByTestId('stat-dragon7').textContent).toBe('1 D7');
+  });
+
+  it('a hit without the bet says so, and a fast-forward clears the moment', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'fast', sound: false });
+    const { session } = setup({ bankroll: 1000, seed: 267 });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    fireEvent.click(spot('player'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    expect(session.getState().lastHand!.result.dragon7).toBe(true);
+    for (let i = 0; i < 400 && screen.queryByTestId('bonus-celebration') === null; i++) {
+      act(() => {
+        vi.advanceTimersByTime(25);
+      });
+    }
+    expect(screen.getByTestId('bonus-celebration').getAttribute('data-kind')).toBe('dragon7');
+    expect(screen.getByTestId('bonus-payout').textContent).toBe('Pays 40 to 1 · no Dragon 7 bet this hand');
+    expect(screen.getByTestId('table-bankroll').getAttribute('data-celebrate')).toBeNull(); // no bet: no jackpot pulse
+    expect(document.body.hasAttribute('data-celebrate')).toBe(false);
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('dealing'); // the moment holds before the settlement
+    act(() => {
+      fireEvent.keyDown(window, { key: ' ' });
+    });
+    expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('settled');
+    expect(screen.getByTestId('settlement-status').textContent).toBe('You lost $25');
+    expect(screen.getByTestId('dealer-call').querySelector('[data-hit="dragon7"]')).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+  });
+
+  it('at normal speed the third Banker card of a Dragon 7 waits face down, then turns; the stats counter pulses once it counts', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'normal', sound: false });
+    const { session } = setup({ bankroll: 1000, seed: 267 });
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    fireEvent.click(within(screen.getByTestId('stats-panel')).getByRole('button', { name: /Session stats/ }));
+    expect(screen.getByTestId('stat-dragon7').textContent).toBe('0 D7');
+    fireEvent.click(spot('banker'));
+    fireEvent.click(chip(5));
+    fireEvent.click(spot('dragon7'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    expect(session.getState().lastHand!.result.dragon7).toBe(true);
+    const banker = (): Element => document.querySelector('[data-side="banker"]')!;
+    for (let i = 0; i < 1000 && banker().querySelectorAll('[data-dealt]').length < 3; i++) {
+      act(() => {
+        vi.advanceTimersByTime(25);
+      });
+    }
+    const third = banker().querySelectorAll('[data-dealt]')[2];
+    expect(third.getAttribute('data-reveal')).toBe('true');
+    expect(banker().getAttribute('data-total')).toBe(String(handTotal(session.getState().lastHand!.result.bankerCards.slice(0, 2)))); // the two-card total while it waits
+    expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(banker().getAttribute('data-total')).toBe('7');
+    for (let i = 0; i < 400 && screen.queryByTestId('bonus-celebration') === null; i++) {
+      act(() => {
+        vi.advanceTimersByTime(25);
+      });
+    }
+    expect(screen.getByTestId('bonus-celebration').getAttribute('data-stage')).toBe('in');
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).toBe('dealing');
+    expect(screen.getByTestId('stat-dragon7').textContent).toBe('0 D7'); // not counted before the settlement
+    act(() => {
+      vi.advanceTimersByTime(2700);
+    });
+    expect(screen.getByTestId('play-view').getAttribute('data-phase')).not.toBe('dealing');
+    expect(screen.getByTestId('stat-dragon7').textContent).toBe('1 D7');
+    expect(screen.getByTestId('stat-dragon7').getAttribute('data-pulse')).toBe('true');
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    expect(screen.queryByTestId('bonus-celebration')).toBeNull();
   });
 
   it('DEAL / Space while a hand plays fast-forwards it without complaining about a missing bet, and deals at once from a shuffle when chips are down', () => {

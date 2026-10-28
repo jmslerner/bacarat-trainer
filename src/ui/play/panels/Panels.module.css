@@ -145,9 +145,25 @@
 .bonusPanda { background: var(--panda); }
 .bonusPair { background: var(--pair); color: #fff; }
 .bonusNatural { background: rgba(243, 234, 216, 0.85); }
+/* a Dragon 7 / Panda 8 hand: tinted in the hit's colour, with its medallion */
+.historyRow.historyDragon { background: linear-gradient(90deg, rgba(233, 161, 24, 0.2), rgba(233, 161, 24, 0.06)); box-shadow: inset 0 0 0 1px rgba(233, 161, 24, 0.5); }
+.historyRow.historyPanda { background: linear-gradient(90deg, rgba(233, 228, 242, 0.16), rgba(233, 228, 242, 0.05)); box-shadow: inset 0 0 0 1px rgba(233, 228, 242, 0.45); }
+.historyMedal { width: 16px; height: 16px; flex: none; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
 .empty { padding: 12px; text-align: center; color: var(--ivory-muted); font-size: var(--text-xs); }
 
 @media (max-width: 640px) {
   .history { max-height: 300px; }
   .historyRow { grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr) 24px auto; gap: 4px; padding: 4px 6px; }
+}
+
+/* ---- session stats: the Dragon 7 / Panda 8 counters beat once when they go up ---- */
+.counter { display: inline-block; font-variant-numeric: tabular-nums; }
+.counterDragon { --pulse-rgb: 233, 161, 24; }
+.counterPanda { --pulse-rgb: 233, 228, 242; }
+.counterPulse { animation: counterPulse 1.1s ease-out 1; }
+@keyframes counterPulse {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.5); color: #fff; text-shadow: 0 0 14px rgba(var(--pulse-rgb), 1); }
+  60% { transform: scale(1.1); color: rgb(var(--pulse-rgb)); }
+  100% { transform: scale(1); }
 }
