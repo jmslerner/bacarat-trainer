@@ -24,12 +24,17 @@ and where the only real edge (counting the side bets) comes from.
   "Last hand of the shoe" banner, and the shuffle / cut / burn sequence of every new shoe.
 * Settlement animation: winners get their payout chips, losers are swept, pushes stay; the bankroll counts up or
   down; the top-bar pill follows the table so the result is never revealed early.
-* The Dragon 7 / Panda 8 moment: at normal and slow speeds the card that makes the hit lands face down under a drum
-  roll and turns as the total is called; then the felt lights up (embers for the Dragon, panda-coloured confetti for
-  the Panda), a medallion banner just below the cards names the hit and its payout ("Pays 40 to 1 · you won +$200 ·
-  Banker bet pushes"), the winning hand, the side-bet spot, the bankroll plaque and the top-bar pill glow, and a gong
-  or a chime cascade plays — about 2.6 s at normal speed, never taking a click. At instant speed the banner shows for
-  1.2 s without slowing the next deal; with reduced motion only the banner remains.
+* The squeeze: at normal and slow speeds the dealer squeezes every third card that could still make a Dragon 7 or Panda 8
+  bet on the layout — the Player's third card under a Panda 8 bet, the Banker's under a Dragon 7 bet while the Player
+  has 6 or less. Hit or miss, it lands face down under a drum roll and turns as the total is called, and nothing names
+  it before then (the beginner tip, the totals, the screen-reader labels and the card counts all wait), so a face-down
+  card never gives the result away. Without the matching bet the card is dealt face up (a Dragon 7 or Panda 8 is still
+  celebrated); fast and instant speeds never squeeze.
+* The Dragon 7 / Panda 8 moment: the felt lights up (embers for the Dragon, panda-coloured confetti for the Panda), a
+  medallion banner just below the cards names the hit and its payout ("Pays 40 to 1 · you won +$200 · Banker bet
+  pushes"), the winning hand, the side-bet spot, the bankroll plaque and the top-bar pill glow, and a gong or a chime
+  cascade plays — about 2.6 s at normal speed, never taking a click. At instant speed the banner shows for 1.2 s
+  without slowing the next deal; with reduced motion only the banner remains.
 * The complete scoreboard — bead plate, big road, big eye boy, small road, cockroach pig — with "Ask P / Ask B"
   prediction and the shoe's Dragon 7 / Panda 8 history (medallion beads, big-road badges, a "+1" on the D7 / P8
   counters, every hit with its hand number and how long since each against the expected 1 in 44 / 1 in 29), hand

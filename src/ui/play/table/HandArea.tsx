@@ -38,7 +38,8 @@ export function HandArea({ side, cards, total, natural, outcome, bonus, pair, si
   const lost = outcome !== null && outcome !== 'tie' && outcome !== side;
   const tie = outcome === 'tie';
   const totalText = total === null ? '—' : String(total);
-  const hidden = faceDown && cards.length === 3;
+  // Only while the card really lies face down (a switch to fast or instant mid-hand deals it face up).
+  const hidden = faceDown && reveal && revealMs > 0 && cards.length === 3;
   const label = `${NAME[side]}: ${cards.length === 0 ? 'no cards' : `${cards.length} cards${hidden ? ', the third face down' : ''}, total ${totalText}`}${won ? ', wins' : tie ? ', tie' : ''}`;
 
   return (

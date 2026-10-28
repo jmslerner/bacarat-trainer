@@ -495,15 +495,30 @@ betting over ≥ 200,000 hands within ±0.3% of the exact EZ Banker edge; martin
   A auto-deal.
 * Dealing animation driven by `HandResult.steps`: cards slide from the shoe to their slot and flip, third cards
   sideways, each step's message shown in the dealer bar (`aria-live`), with per-step delays scaled by the speed
-  setting (and an "instant" option). Then settlement: winning spots show the payout chips, losing chips are
-  swept, pushes stay; bankroll animates to the new value. Then the result is pushed to the roads/history.
-* The Dragon 7 / Panda 8 moment (`buildCelebration` → the bonus frame's `celebrate`): at normal and slow speeds the third
-  card that makes the hit waits face down (`revealMs`) under a drum roll — the beginner tip must not name it — and turns
-  as the total is called; the hit's call then holds `celebrationHoldMs` (2.6 s normal, 3.5 s slow, 1.4 s fast) while
-  `<BonusCelebration/>` plays inside the felt (flash, embers / confetti, a medallion banner placed just below the cards
-  and wholly on screen, with the payout line; pointer-events none, aria-hidden — the dealer bar announces the call),
-  before the settlement goes on. At instant speed nothing waits: the banner shows itself for 1.2 s. Reduced motion:
-  the banner only. The next deal, a fast-forward or a reset clears it.
+  setting (and an "instant" option). A hand plays out at the speed it was dealt at, its card animations included
+  (`AnimState.base`): a speed change takes effect from the next hand. Then settlement: winning spots show the payout
+  chips, losing chips are swept, pushes stay; bankroll animates to the new value. Then the result is pushed to the
+  roads/history.
+* The squeeze (`squeezeSides`; normal and slow speeds only): the dealer squeezes every third card that could still make a
+  side bet on this hand's layout, hit or not — the Player's third card whenever the Player draws with a Panda 8 bet down
+  (the Banker never has a natural then, so any Player third card could make a winning three-card 8), the Banker's
+  whenever the Banker draws with a Dragon 7 bet down and the Player's final total is 6 or less (a Player 7, 8 or 9 rules
+  out a winning Banker 7). With both bets the Player's card is squeezed and turned, then the Banker's. A squeezed card
+  lands face down, waits `revealMs` (1.04 s normal, 1.76 s slow) under a drum roll in a breath of its side's colour
+  (gold Banker, pearl Player) and turns as the dealer calls the total. Until it turns nothing depends on what it is —
+  the wait, the sound, the call, the beginner tip ("Banker’s third card is squeezed: it could still make a Dragon 7.",
+  never longer than the ordinary third-card tip), the ring, the totals held at their two-card figures — and nothing
+  names it (`HandDisplay.faceDown`): the card is announced as "Face-down card", its hand as "3 cards, the third face
+  down", and the Coach's counts leave it out until it is face up. A miss then goes on like any third card (no ring left,
+  no glow); a hit goes on to its moment. Without the bet a Dragon 7 / Panda 8 card is dealt face up like any other and
+  still celebrated. Fast and instant speeds never squeeze; reduced motion keeps the face-down wait and turns the card
+  without animation; a fast-forward, the next deal or a reset turns it face up at once.
+* The Dragon 7 / Panda 8 moment (`buildCelebration` → the bonus frame's `celebrate`): the hit's call holds
+  `celebrationHoldMs` (2.6 s normal, 3.5 s slow, 1.4 s fast) while `<BonusCelebration/>` plays inside the felt (flash,
+  embers / confetti, a medallion banner placed just below the cards and wholly on screen, with the payout line;
+  pointer-events none, aria-hidden — the dealer bar announces the call), before the settlement goes on. At instant
+  speed nothing waits: the banner shows itself for 1.2 s. Reduced motion: the banner only. The next deal, a
+  fast-forward or a reset clears it.
 * New shoe sequence: "Shuffling…", cut card placed, exposed burn card shown with "Burning N cards", then play.
   Banner "Last hand of the shoe" when `lastHandNext`.
 * Controls: DEAL (disabled with reason when `canDeal()` fails), REBET, CLEAR, UNDO, AUTO (auto-rebet and deal

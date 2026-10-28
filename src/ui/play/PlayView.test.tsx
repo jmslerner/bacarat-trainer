@@ -2,8 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { DEFAULT_RULES, RULE_PRESETS, applyTableLevel, handTotal, totalOnLayout } from '@/engine';
-import { buyInStore, DEFAULT_PREFS, getDisplayedBankroll, getSession, prefsStore, resetSession, rulesStore } from '@/ui/shell';
+import { buyInStore, cardName, DEFAULT_PREFS, getDisplayedBankroll, getSession, prefsStore, resetSession, rulesStore } from '@/ui/shell';
 import { PlayView, defaultChip } from './PlayView';
+import { dealDurationMs, revealMs } from './animation/timeline';
 import { clearHistory } from './history/historyStore';
 
 function setup(opts: { bankroll?: number; seed?: number } = {}) {
@@ -646,7 +647,7 @@ describe('PlayView — settlement display', () => {
     expect(screen.queryByTestId('bonus-celebration')).toBeNull();
   });
 
-  it('at normal speed the third Banker card of a Dragon 7 waits face down, then turns; the stats counter pulses once it counts', () => {
+  it('at normal speed the third Banker card of a Dragon 7 (the bet down) is squeezed, then turns; the stats counter pulses once it counts', () => {
     vi.useFakeTimers();
     prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'normal', sound: false });
     const { session } = setup({ bankroll: 1000, seed: 267 });
@@ -670,15 +671,17 @@ describe('PlayView — settlement display', () => {
     }
     const third = banker().querySelectorAll('[data-dealt]')[2];
     expect(third.getAttribute('data-reveal')).toBe('true');
+    expect(third.getAttribute('data-face-down')).toBe('true');
     expect(banker().getAttribute('data-total')).toBe(String(handTotal(session.getState().lastHand!.result.bankerCards.slice(0, 2)))); // the two-card total while it waits
     expect(screen.queryByTestId('bonus-celebration')).toBeNull();
     // The beginner tip (on by default) must not give the face-down card away before it turns.
-    expect(screen.getByTestId('dealer-tip').textContent).toMatch(/third card lands face down — it turns over in a moment/);
-    expect(screen.getByTestId('dealer-tip').textContent).not.toMatch(/third card is|→/);
+    expect(screen.getByTestId('dealer-tip').textContent).toMatch(/Banker’s third card is squeezed: it could still make a Dragon 7\.$/);
+    expect(screen.getByTestId('dealer-tip').textContent).not.toMatch(/third card is \S+ \(|→/);
     act(() => {
       vi.advanceTimersByTime(1100);
     });
     expect(banker().getAttribute('data-total')).toBe('7');
+    expect(third.hasAttribute('data-face-down')).toBe(false);
     expect(screen.getByTestId('dealer-tip').textContent).toMatch(/Banker’s third card is .* → 7\./);
     for (let i = 0; i < 400 && screen.queryByTestId('bonus-celebration') === null; i++) {
       act(() => {
@@ -698,6 +701,234 @@ describe('PlayView — settlement display', () => {
       vi.advanceTimersByTime(8000);
     });
     expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+  });
+
+  it('at normal speed every third card that could still make a side bet on the layout is squeezed — misses too — and nothing names it before it turns', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'normal', sound: false });
+    const { session } = setup({ bankroll: 1000, seed: 3 });
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    fireEvent.click(spot('banker'));
+    fireEvent.click(chip(5));
+    fireEvent.click(spot('dragon7'));
+    fireEvent.click(spot('panda8'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    // Player 8 6 draws a 6 (4 → 0), Banker 10 6 draws a 5 (6 → 1): either third card could still make a side bet; neither does.
+    const result = session.getState().lastHand!.result;
+    expect(result).toMatchObject({ playerTotal: 0, bankerTotal: 1, outcome: 'banker', dragon7: false, panda8: false });
+    expect(result.playerCards).toHaveLength(3);
+    expect(result.bankerCards).toHaveLength(3);
+    const area = (s: 'player' | 'banker'): HTMLElement => document.querySelector(`[data-side="${s}"]`) as HTMLElement;
+    const dealt = (s: 'player' | 'banker'): HTMLElement[] => Array.from(area(s).querySelectorAll<HTMLElement>('[data-dealt]'));
+    const call = (): string => screen.getByTestId('dealer-call').textContent ?? '';
+    const tip = (): string => screen.getByTestId('dealer-tip').textContent ?? '';
+    const coachTip = (): string => screen.getByTestId('coach-tip').textContent ?? '';
+    const seen = (): number => Number(/\((\d+) seen/.exec(screen.getByTestId('coach-panel').textContent ?? '')?.[1]);
+    const running = (): string => ['count-dragon7', 'count-panda8'].map((id) => /running (\S+)/.exec(screen.getByTestId(id).textContent ?? '')?.[1]).join(' ');
+    const until = (done: () => boolean): void => {
+      for (let i = 0; i < 1000 && !done(); i++) {
+        act(() => {
+          vi.advanceTimersByTime(25);
+        });
+      }
+      expect(done()).toBe(true);
+    };
+    const names = (el: HTMLElement): string[] => within(el).queryAllByRole('img').map((img) => img.getAttribute('aria-label') ?? '');
+    // What the felt's cards announce: every card image not inside an aria-hidden part, in dealing order per side.
+    const announced = (): string[] =>
+      Array.from(document.querySelectorAll<SVGElement>('[data-dealt] svg[role="img"]'))
+        .filter((img) => img.closest('[aria-hidden="true"]') === null)
+        .map((img) => img.getAttribute('aria-label') ?? '');
+    const historyRows = (): number => screen.queryByTestId('hand-history')?.querySelectorAll('li').length ?? 0;
+
+    until(() => call() === 'Player draws');
+    const seenBefore = seen();
+    const runningBefore = running();
+    const rowsBefore = historyRows();
+    expect(seenBefore).toBeGreaterThan(4);
+    const [pA, pB, pC] = result.playerCards.map(cardName);
+    const [bA, bB, bC] = result.bankerCards.map(cardName);
+
+    // The Player's third card (Panda 8 bet): face down, announced as a face-down card, the totals held, not counted.
+    until(() => dealt('player').length === 3);
+    const p3 = dealt('player')[2];
+    expect(p3.getAttribute('data-reveal')).toBe('true');
+    expect(p3.getAttribute('data-face-down')).toBe('true');
+    expect(names(p3)).toEqual(['Face-down card']);
+    expect(announced()).toEqual([pA, pB, 'Face-down card', bA, bB]);
+    expect(area('player').getAttribute('aria-label')).toBe('Player: 3 cards, the third face down, total 4');
+    expect(area('player').getAttribute('data-total')).toBe('4');
+    expect(call()).toBe('Card to Player');
+    expect(tip()).toBe('WhyPlayer’s third card is squeezed: it could still make a Panda 8.');
+    expect(coachTip()).toBe('Card to PlayerPlayer’s third card is squeezed: it could still make a Panda 8.');
+    expect(seen()).toBe(seenBefore);
+    expect(running()).toBe(runningBefore);
+    expect(screen.getByTestId('settlement-status').textContent).toBe('');
+    expect(historyRows()).toBe(rowsBefore);
+    expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+    expect(document.querySelectorAll('[data-glow]')).toHaveLength(0);
+
+    // It turns: named, counted, the total called — and nothing left of the squeeze but the finished turn.
+    act(() => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(p3.hasAttribute('data-face-down')).toBe(false);
+    expect(names(p3)).toEqual([pC]);
+    expect(announced()).toEqual([pA, pB, pC, bA, bB]);
+    expect(area('player').getAttribute('aria-label')).toBe('Player: 3 cards, total 0');
+    expect(area('player').getAttribute('data-total')).toBe('0');
+    expect(tip()).toMatch(/^WhyPlayer’s third card is 6. \(6 counts 6\): 4 \+ 6 → 0\./);
+    expect(seen()).toBe(seenBefore + 1);
+    expect(document.querySelectorAll('[data-glow]')).toHaveLength(0);
+
+    // The Banker's third card (Dragon 7 bet, Player 0): squeezed in its turn.
+    until(() => dealt('banker').length === 3);
+    const b3 = dealt('banker')[2];
+    expect(b3.getAttribute('data-face-down')).toBe('true');
+    expect(names(b3)).toEqual(['Face-down card']);
+    expect(announced()).toEqual([pA, pB, pC, bA, bB, 'Face-down card']);
+    expect(p3.getAttribute('data-reveal')).toBe('true'); // the Player's card keeps its finished turn
+    expect(p3.hasAttribute('data-face-down')).toBe(false);
+    expect(area('banker').getAttribute('aria-label')).toBe('Banker: 3 cards, the third face down, total 6');
+    expect(area('banker').getAttribute('data-total')).toBe('6');
+    expect(call()).toBe('Card to Banker');
+    expect(tip()).toBe('WhyBanker’s third card is squeezed: it could still make a Dragon 7.');
+    expect(seen()).toBe(seenBefore + 1);
+    act(() => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(b3.hasAttribute('data-face-down')).toBe(false);
+    expect(names(b3)).toEqual([bC]);
+    expect(announced()).toEqual([pA, pB, pC, bA, bB, bC]);
+    expect(area('banker').getAttribute('data-total')).toBe('1');
+    expect(seen()).toBe(seenBefore + 2);
+    expect(document.querySelectorAll('[data-face-down="true"][data-dealt]')).toHaveLength(0);
+
+    // A miss settles like any hand: no moment, no glow, no hit in the history.
+    until(() => screen.getByTestId('settlement-status').textContent !== '');
+    expect(screen.getByTestId('settlement-status').textContent).toBe('You won $15'); // Banker +$25, both side bets −$5
+    expect(screen.queryByTestId('bonus-celebration')).toBeNull();
+    expect(document.querySelectorAll('[data-glow]')).toHaveLength(0);
+    expect(screen.getByTestId('dealer-call').querySelector('[data-hit]')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(within(screen.getByTestId('hand-history')).getAllByRole('listitem')[0].hasAttribute('data-hit')).toBe(false);
+  });
+
+  it('without a Dragon 7 or Panda 8 bet nothing is squeezed: the same third cards land face up and are called at once', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'normal', sound: false });
+    setup({ bankroll: 1000, seed: 3 });
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    fireEvent.click(spot('banker'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    const area = (s: 'player' | 'banker'): HTMLElement => document.querySelector(`[data-side="${s}"]`) as HTMLElement;
+    const dealt = (s: 'player' | 'banker'): HTMLElement[] => Array.from(area(s).querySelectorAll<HTMLElement>('[data-dealt]'));
+    for (const [s, total] of [['player', '0'], ['banker', '1']] as const) {
+      for (let i = 0; i < 1000 && dealt(s).length < 3; i++) {
+        act(() => {
+          vi.advanceTimersByTime(25);
+        });
+      }
+      expect(dealt(s)).toHaveLength(3);
+      expect(dealt(s)[2].hasAttribute('data-reveal')).toBe(false);
+      expect(dealt(s)[2].hasAttribute('data-face-down')).toBe(false);
+      expect(area(s).getAttribute('data-total')).toBe(total);
+      expect(screen.getByTestId('dealer-tip').textContent).toMatch(/third card is \S+ \(/);
+    }
+    expect(document.querySelectorAll('[data-reveal]')).toHaveLength(0);
+  });
+
+  it('a speed change while a hand plays applies from the next hand: a squeezed card still turns just as its total is called', () => {
+    vi.useFakeTimers();
+    prefsStore.set({ ...DEFAULT_PREFS, dealSpeed: 'normal', sound: false });
+    setup({ bankroll: 1000, seed: 3 });
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    fireEvent.click(spot('banker'));
+    fireEvent.click(chip(5));
+    fireEvent.click(spot('dragon7'));
+    fireEvent.click(spot('panda8'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    // Seed 3, hand 1: Player 8 6 draws a 6 (4 → 0), Banker 10 6 draws a 5 (6 → 1) — both third cards squeezed.
+    const area = (s: 'player' | 'banker'): HTMLElement => document.querySelector(`[data-side="${s}"]`) as HTMLElement;
+    const dealt = (s: 'player' | 'banker'): HTMLElement[] => Array.from(area(s).querySelectorAll<HTMLElement>('[data-dealt]'));
+    let faceDownSeen = false;
+    const until = (done: () => boolean): void => {
+      for (let i = 0; i < 1000 && !done(); i++) {
+        act(() => {
+          vi.advanceTimersByTime(25);
+        });
+        if (document.querySelector('[data-dealt][data-face-down]')) faceDownSeen = true;
+      }
+      expect(done()).toBe(true);
+    };
+    const speed = (dealSpeed: 'slow' | 'fast'): void => {
+      act(() => {
+        prefsStore.set({ ...DEFAULT_PREFS, dealSpeed, sound: false });
+      });
+    };
+
+    // Slow is chosen while the first cards are dealt: the Player's card still lands with the normal pace of its hand,
+    // so it turns as the total is called, not 0.7 s later.
+    speed('slow');
+    until(() => dealt('player').length === 3);
+    const p3 = dealt('player')[2];
+    expect(p3.getAttribute('data-face-down')).toBe('true');
+    expect(p3.style.getPropertyValue('--reveal-ms')).toBe(`${revealMs(650)}ms`);
+    expect(p3.style.getPropertyValue('--deal-ms')).toBe(`${dealDurationMs(650)}ms`);
+    act(() => {
+      vi.advanceTimersByTime(revealMs(650) + 10);
+    });
+    expect(p3.hasAttribute('data-face-down')).toBe(false);
+    expect(area('player').getAttribute('data-total')).toBe('0');
+
+    // Fast is chosen while the Banker's card lies face down: it stays face down, its total held, until the call.
+    until(() => dealt('banker').length === 3);
+    const b3 = dealt('banker')[2];
+    speed('fast');
+    const waiting = (): void => {
+      expect(b3.getAttribute('data-face-down')).toBe('true');
+      expect(b3.getAttribute('data-reveal')).toBe('true');
+      expect(within(b3).getAllByRole('img').filter((img) => img.closest('[aria-hidden="true"]') === null).map((img) => img.getAttribute('aria-label'))).toEqual(['Face-down card']);
+      expect(area('banker').getAttribute('aria-label')).toBe('Banker: 3 cards, the third face down, total 6');
+      expect(area('banker').getAttribute('data-total')).toBe('6');
+    };
+    waiting();
+    act(() => {
+      vi.advanceTimersByTime(revealMs(650) - 120);
+    });
+    waiting();
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(b3.hasAttribute('data-face-down')).toBe(false);
+    expect(area('banker').getAttribute('data-total')).toBe('1');
+
+    // The next hand is dealt at the new speed: fast cards, nothing squeezed.
+    until(() => /^Deal/.test(dealButton().textContent ?? ''));
+    fireEvent.click(screen.getByTestId('rebet-button'));
+    act(() => {
+      fireEvent.click(dealButton());
+    });
+    faceDownSeen = false;
+    until(() => dealt('player').length >= 1);
+    expect(dealt('player')[0].style.getPropertyValue('--deal-ms')).toBe(`${dealDurationMs(300)}ms`);
+    until(() => /^Deal/.test(dealButton().textContent ?? ''));
+    expect(faceDownSeen).toBe(false);
+    expect(document.querySelectorAll('[data-reveal]')).toHaveLength(0);
   });
 
   it('DEAL / Space while a hand plays fast-forwards it without complaining about a missing bet, and deals at once from a shuffle when chips are down', () => {

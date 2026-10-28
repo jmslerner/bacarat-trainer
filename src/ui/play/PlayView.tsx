@@ -411,6 +411,9 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
   const commission = view.rules.bankerRule === 'commission' ? { thisHand: anim.current && anim.settled ? anim.current.settlement.commission : 0, session: view.stats.commissionPaid } : null;
   const extremes = useMemo(() => historyExtremes(history), [history]);
   const lastCall = anim.hand.step >= 0 ? { message: anim.hand.message, tip: anim.hand.tip } : null;
+  // The felt animates at the speed the hand in play was dealt at (its timeline is fixed to it); a new setting applies
+  // from the next hand. Otherwise a squeezed card could turn long before or after the dealer calls its total.
+  const tableBase = anim.busy && anim.base !== null ? anim.base : base;
 
   const coach = (
     <CoachPanel rules={view.rules} bets={coachBets} seenCards={view.seenCards} shoe={view.shoe} stats={view.stats} streak={view.stats.currentStreak} beginnerTips={prefs.beginnerTips} onToggleTips={(on) => setPrefs({ beginnerTips: on })} lastCall={lastCall} />
@@ -435,8 +438,8 @@ export function PlayView({ className }: PlayViewProps = {}): ReactNode {
               shuffle={anim.shuffle}
               announce={anim.announce}
               shoe={view.shoe}
-              dealMs={dealDurationMs(base)}
-              revealMs={revealMs(base)}
+              dealMs={dealDurationMs(tableBase)}
+              revealMs={revealMs(tableBase)}
               celebration={anim.celebration}
               layout={anim.layout}
               liveBets={live.bets}

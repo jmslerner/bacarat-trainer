@@ -4,8 +4,9 @@
  */
 
 /**
- * 'bonus' is the sparkle of a pair or a natural; 'riser' the drum roll under the card that makes a Dragon 7 /
- * Panda 8; 'dragon7' the gong and rising run of the Dragon 7; 'panda8' the chime cascade of the Panda 8.
+ * 'bonus' is the sparkle of a pair or a natural; 'riser' the drum roll under a squeezed third card (one that could
+ * still make a Dragon 7 / Panda 8 bet on the layout, hit or not); 'dragon7' the gong and rising run of the Dragon 7;
+ * 'panda8' the chime cascade of the Panda 8.
  */
 export type SoundName = 'chip' | 'deal' | 'flip' | 'win' | 'lose' | 'push' | 'bonus' | 'click' | 'shuffle' | 'riser' | 'dragon7' | 'panda8';
 

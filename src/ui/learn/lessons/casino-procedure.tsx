@@ -234,6 +234,11 @@ export function CasinoProcedureLesson(): ReactNode {
             game to 40–50 hands an hour, which is cheaper for you than a fast table (<LessonLink to="bets-and-odds">Lesson 3</LessonLink>).
           </p>
           <p>
+            In this trainer the dealer squeezes for you at normal and slow speeds: any third card that could still make your Dragon 7 or Panda 8
+            bet lands face down and turns slowly as the total is called. It does so whether the card makes the hit or not, so a squeezed card tells
+            you nothing until it turns.
+          </p>
+          <p>
             If you are handed the cards: squeeze them over the table, never below it; do not bend them past what the dealer allows; and hand them back
             face up when asked. Squeezed cards are retired after the shoe.
           </p>

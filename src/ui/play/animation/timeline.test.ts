@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RULES, RULE_PRESETS, dealFromValues, settleBets, type Bets, type HandResult, type HandSettlement, type ShoeInfo, type TableRules } from '@/engine';
-import { autoPauseMs, buildCelebration, buildHandTimeline, buildShuffleTimeline, celebrationHoldMs, dealDurationMs, describeSettlement, faceDownTip, layoutFromBets, revealMs, TIMING } from './timeline';
+import { DEFAULT_RULES, RANKS, RULE_PRESETS, dealFromValues, settleBets, type Bets, type HandResult, type HandSettlement, type ShoeInfo, type TableRules } from '@/engine';
+import { explainSteps } from '../coach/tips';
+import { autoPauseMs, buildCelebration, buildHandTimeline, buildShuffleTimeline, celebrationHoldMs, dealDurationMs, describeSettlement, faceDownTip, layoutFromBets, revealMs, squeezeSides, TIMING } from './timeline';
 import type { Frame } from './types';
 
 const shoeInfo: ShoeInfo = {
@@ -153,18 +154,18 @@ describe('the Dragon 7 / Panda 8 moment', () => {
     expect(instant.find((f) => f.sound === 'riser')).toBeUndefined();
   });
 
-  it('reveals the card that makes the hit face down under the drum roll, then flips it as the total is called — at normal and slow speeds only', () => {
+  it('with the Dragon 7 bet down, its card is squeezed: face down under the drum roll, turned as the total is called — at normal and slow speeds only', () => {
     expect(revealMs(1100)).toBe(1760);
     expect(revealMs(650)).toBe(1040);
     expect(revealMs(300)).toBe(0);
     expect(revealMs(0)).toBe(0);
     const frames = build(dragon, dragonBets, dragonSettlement, 650);
     const riser = frames.find((f) => f.sound === 'riser')!;
-    expect(riser.hand).toMatchObject({ reveal: 'banker', bankerTotal: 4, message: 'Card to Banker' });
+    expect(riser.hand).toMatchObject({ reveal: 'banker', faceDown: 'banker', bankerTotal: 4, message: 'Card to Banker' });
     expect(riser.hand!.bankerCards).toHaveLength(3);
     const flip = frames.find((f) => f.at === riser.at + 1040)!;
     expect(flip.sound).toBe('flip');
-    expect(flip.hand).toMatchObject({ reveal: 'banker', bankerTotal: 7 });
+    expect(flip.hand).toMatchObject({ reveal: 'banker', faceDown: null, bankerTotal: 7 });
     expect(flip.hand!.bankerCards).toEqual(riser.hand!.bankerCards);
     const result = frames.find((f) => f.hand?.outcome === 'banker')!;
     expect(result.at).toBe(flip.at + 650 * TIMING.deal);
@@ -172,6 +173,7 @@ describe('the Dragon 7 / Panda 8 moment', () => {
     const p3 = frames.find((f) => f.hand?.playerCards.length === 3)!;
     expect(p3.sound).toBe('deal');
     expect(p3.hand!.reveal).toBeNull();
+    expect(p3.hand!.faceDown).toBeNull();
     const fast = build(dragon, dragonBets, dragonSettlement, 300);
     expect(fast.some((f) => f.sound === 'riser')).toBe(false);
     expect(fast.every((f) => !f.hand || f.hand.reveal === null)).toBe(true);
@@ -183,6 +185,7 @@ describe('the Dragon 7 / Panda 8 moment', () => {
     const riser = frames.find((f) => f.sound === 'riser')!;
     const card = dragon.bankerCards[2];
     expect(riser.hand!.tip).toBe(faceDownTip('banker'));
+    expect(riser.hand!.tip).toBe('Banker’s third card is squeezed: it could still make a Dragon 7.');
     expect(riser.hand!.tip).not.toMatch(/→|counts/);
     // The flip brings the real explanation: the card, its value and the new total.
     const flip = frames.find((f) => f.at === riser.at + 1040)!;
@@ -205,6 +208,7 @@ describe('the Dragon 7 / Panda 8 moment', () => {
     expect(bonus.celebrate).toMatchObject({ kind: 'panda8', side: 'player', pays: 25, won: 125, hadBet: true, bankerPush: false });
     const riser = frames.find((f) => f.sound === 'riser')!;
     expect(riser.hand!.reveal).toBe('player');
+    expect(riser.hand!.faceDown).toBe('player');
     expect(riser.hand!.playerTotal).toBe(5);
     expect(frames.find((f) => f.at === riser.at + 1040)!.hand!.playerTotal).toBe(8);
   });
@@ -248,6 +252,166 @@ describe('the Dragon 7 / Panda 8 moment', () => {
     const nat = build(natural, {}, settleBets({}, natural, DEFAULT_RULES), 650);
     expect(nat.find((f) => f.hand?.natural)!.sound).toBe('bonus');
     expect(nat.some((f) => f.celebrate)).toBe(false);
+  });
+});
+
+describe('the squeeze', () => {
+  const build = (result: HandResult, bets: Bets, base = 650, tips = false): Frame[] =>
+    buildHandTimeline({ result, settlement: settleBets(bets, result, DEFAULT_RULES), rules: DEFAULT_RULES, bets, stacks: {}, bankrollBefore: 1000, bankrollAfter: 1000, base, tips, newShoe: null });
+  const risers = (frames: Frame[]): Frame[] => frames.filter((f) => f.sound === 'riser');
+  // Player 2+1 = 3 draws a 4 → 7; Banker 7 stands.
+  const playerDraws = dealFromValues([2, 1, 4], [7, 0]);
+  // Player 3+1 = 4 draws a 2 → 6; Banker 4 draws a 5 → 9: no Dragon 7.
+  const bothDraw = dealFromValues([3, 1, 2], [4, 0, 5]);
+  // The same cards with a 3 as the Banker's third card: 4 + 3 → 7 beats 6, a Dragon 7.
+  const dragon = dealFromValues([3, 1, 2], [4, 0, 3]);
+  // Player 5+0 draws a 3 → 8 over the Banker's 0, a Panda 8; with a 2 instead, Player 7 and no Panda 8.
+  const panda = dealFromValues([5, 0, 3], [3, 0, 7]);
+  const pandaMiss = dealFromValues([5, 0, 2], [3, 0, 7]);
+  const allBets: Bets = { banker: 25, dragon7: 5, panda8: 5 };
+  /** A frame without the third card of one side: what is left must be the same for a hit and a miss. */
+  const withoutThird = (f: Frame, side: 'player' | 'banker'): Frame => ({ ...f, hand: { ...f.hand!, [side === 'player' ? 'playerCards' : 'bankerCards']: (side === 'player' ? f.hand!.playerCards : f.hand!.bankerCards).slice(0, 2) } });
+
+  it('squeezeSides: the Player’s third card with a Panda 8 bet down; the Banker’s with a Dragon 7 bet down while the Player has 6 or less', () => {
+    expect(dragon.dragon7).toBe(true);
+    expect(panda.panda8).toBe(true);
+    expect(squeezeSides(playerDraws, { player: 10, panda8: 5 })).toEqual({ player: true, banker: false });
+    expect(squeezeSides(playerDraws, { player: 10, dragon7: 5 })).toEqual({ player: false, banker: false });
+    expect(squeezeSides(bothDraw, { banker: 10, dragon7: 5 })).toEqual({ player: false, banker: true });
+    // The Player stood on 6: the Banker's card can still make a Dragon 7.
+    expect(squeezeSides(dealFromValues([6, 0], [3, 0, 4]), { dragon7: 5 })).toEqual({ player: false, banker: true });
+    // A Player 7 rules the Dragon 7 out — even when the Banker then makes a three-card 7 (a tie).
+    const player7 = dealFromValues([3, 1, 3], [4, 0, 5]);
+    expect(player7.playerTotal).toBe(7);
+    expect(squeezeSides(player7, { banker: 10, dragon7: 5 })).toEqual({ player: false, banker: false });
+    const tie7 = dealFromValues([6, 1], [2, 0, 5]);
+    expect(tie7).toMatchObject({ playerTotal: 7, bankerTotal: 7, outcome: 'tie', dragon7: false });
+    expect(squeezeSides(tie7, { dragon7: 5 })).toEqual({ player: false, banker: false });
+    // Both bets, both sides draw: both cards.
+    expect(squeezeSides(bothDraw, allBets)).toEqual({ player: true, banker: true });
+    // A natural: no third card at all.
+    expect(squeezeSides(dealFromValues([9, 0], [4, 4]), allBets)).toEqual({ player: false, banker: false });
+    // No side bets: no squeeze, hit or not.
+    expect(squeezeSides(bothDraw, { banker: 25, player: 10 })).toEqual({ player: false, banker: false });
+    expect(squeezeSides(dragon, { banker: 25 })).toEqual({ player: false, banker: false });
+    expect(squeezeSides(panda, { player: 25 })).toEqual({ player: false, banker: false });
+  });
+
+  it('a miss is squeezed like a hit: face down under the drum roll with the totals held, then turned and dealt on', () => {
+    const frames = build(bothDraw, { banker: 10, dragon7: 5 }, 650, true);
+    expect(risers(frames)).toHaveLength(1);
+    const [riser] = risers(frames);
+    expect(riser.hand).toMatchObject({ reveal: 'banker', faceDown: 'banker', playerTotal: 6, bankerTotal: 4, message: 'Card to Banker', tip: faceDownTip('banker'), hit: null, dragon7: false, panda8: false });
+    expect(riser.hand!.bankerCards).toEqual(bothDraw.bankerCards);
+    expect(riser.celebrate).toBeUndefined();
+    const flip = frames[frames.indexOf(riser) + 1];
+    expect(flip.at - riser.at).toBe(revealMs(650));
+    expect(flip.sound).toBe('flip');
+    expect(flip.hand).toMatchObject({ reveal: 'banker', faceDown: null, bankerTotal: 9 });
+    expect(flip.hand!.tip).toMatch(/^Banker’s third card is 5. \(5 counts 5\): 4 \+ 5 → 9\./);
+    // No Panda 8 bet: the Player's third card was an ordinary deal.
+    const p3 = frames.find((f) => f.hand?.playerCards.length === 3)!;
+    expect(p3.sound).toBe('deal');
+    expect(p3.hand).toMatchObject({ reveal: null, faceDown: null, playerTotal: 6 });
+    // The Player's third card with a Panda 8 bet: squeezed, Panda 8 or not.
+    const player = risers(build(playerDraws, { player: 10, panda8: 5 }));
+    expect(player).toHaveLength(1);
+    expect(player[0].hand).toMatchObject({ reveal: 'player', faceDown: 'player', playerTotal: 3, bankerTotal: 7 });
+  });
+
+  it('a Dragon 7 or Panda 8 without its bet is dealt face up — and still celebrated', () => {
+    for (const [result, bets, kind] of [
+      [dragon, { banker: 25 }, 'dragon7'],
+      [dragon, { player: 10 }, 'dragon7'],
+      [panda, { player: 25, dragon7: 5 }, 'panda8'],
+    ] as const) {
+      const frames = build(result, bets);
+      expect(risers(frames)).toHaveLength(0);
+      expect(frames.every((f) => !f.hand || (f.hand.reveal === null && f.hand.faceDown === null))).toBe(true);
+      expect(frames.filter((f) => f.sound === 'deal')).toHaveLength(6);
+      expect(frames.find((f) => f.celebrate)!.celebrate).toMatchObject({ kind, hadBet: false });
+    }
+    // The Dragon 7 with only a Panda 8 bet: the Player's card is squeezed (it could have made the Panda 8), the
+    // Dragon 7 card is not.
+    const frames = build(dragon, { banker: 25, panda8: 5 });
+    expect(risers(frames).map((f) => f.hand!.faceDown)).toEqual(['player']);
+    expect(frames.find((f) => f.hand?.bankerCards.length === 3)!.sound).toBe('deal');
+  });
+
+  it('fast and instant speeds never squeeze', () => {
+    for (const base of [300, 0]) {
+      const frames = build(bothDraw, allBets, base);
+      expect(risers(frames)).toHaveLength(0);
+      expect(frames.every((f) => !f.hand || (f.hand.reveal === null && f.hand.faceDown === null))).toBe(true);
+    }
+  });
+
+  it('the face-down frames of a hit and a miss differ only in the card itself', () => {
+    for (const tips of [true, false]) {
+      // The Banker's card: the Dragon 7's 3 and a missing 5, with the Player's card squeezed before it (Panda 8 bet).
+      const hit = risers(build(dragon, allBets, 650, tips));
+      const miss = risers(build(bothDraw, allBets, 650, tips));
+      expect(hit.map((f) => f.hand!.faceDown)).toEqual(['player', 'banker']);
+      expect(miss.map((f) => f.hand!.faceDown)).toEqual(['player', 'banker']);
+      expect(hit[0]).toStrictEqual(miss[0]); // the same Player card
+      expect(withoutThird(hit[1], 'banker')).toStrictEqual(withoutThird(miss[1], 'banker'));
+      expect(hit[1].hand!.bankerCards[2].rank).toBe('3');
+      expect(miss[1].hand!.bankerCards[2].rank).toBe('5');
+      // The Player's card: the Panda 8's 3 and a missing 2.
+      const pHit = risers(build(panda, allBets, 650, tips));
+      const pMiss = risers(build(pandaMiss, allBets, 650, tips));
+      expect(pHit).toHaveLength(1);
+      expect(pMiss).toHaveLength(1);
+      expect(withoutThird(pHit[0], 'player')).toStrictEqual(withoutThird(pMiss[0], 'player'));
+      expect(pHit[0].hand!.playerCards[2].rank).toBe('3');
+      expect(pMiss[0].hand!.playerCards[2].rank).toBe('2');
+    }
+  });
+
+  it('a miss after its turn carries no hit and no glow, and the hand goes on to its result', () => {
+    const frames = build(bothDraw, allBets);
+    const turned = frames.slice(frames.indexOf(risers(frames)[1]) + 1).filter((f) => f.hand);
+    expect(turned.length).toBeGreaterThan(0);
+    for (const f of turned) expect(f.hand).toMatchObject({ faceDown: null, hit: null, dragon7: false, panda8: false });
+    expect(frames.some((f) => f.celebrate)).toBe(false);
+    expect(frames.some((f) => f.sound === 'dragon7' || f.sound === 'panda8')).toBe(false);
+    expect(lastHand(frames).hand).toMatchObject({ outcome: 'banker', playerTotal: 6, bankerTotal: 9 });
+  });
+
+  it('with both bets the Player’s card is squeezed and turned, then the Banker’s — each with the usual wait', () => {
+    const frames = build(bothDraw, allBets);
+    const [p, b] = risers(frames);
+    expect(p.hand).toMatchObject({ reveal: 'player', faceDown: 'player', playerTotal: 4, bankerTotal: 4 });
+    expect(p.hand!.playerCards).toHaveLength(3);
+    expect(b.hand).toMatchObject({ reveal: 'both', faceDown: 'banker', playerTotal: 6, bankerTotal: 4 });
+    expect(b.hand!.bankerCards).toHaveLength(3);
+    // Between the two, the Player's card has turned: no frame shows both face down.
+    expect(frames.filter((f) => f.at > p.at && f.at < b.at && f.hand).every((f) => f.hand!.faceDown === null)).toBe(true);
+    const settledAt = (fs: Frame[]): number => fs.find((f) => f.event === 'settled')!.at;
+    expect(settledAt(frames) - settledAt(build(bothDraw, { banker: 25 }))).toBe(2 * revealMs(650));
+    expect(settledAt(build(bothDraw, allBets, 1100)) - settledAt(build(bothDraw, { banker: 25 }, 1100))).toBe(2 * revealMs(1100));
+  });
+
+  it('the face-down tip says why the card is squeezed — the same on hits and misses — and is never longer than an ordinary third-card tip', () => {
+    expect(faceDownTip('player')).toBe('Player’s third card is squeezed: it could still make a Panda 8.');
+    expect(faceDownTip('banker')).toBe('Banker’s third card is squeezed: it could still make a Dragon 7.');
+    // Every ordinary third-card tip: each rank as the Player's third card (Player 0–5, Banker 7 stands) and as the
+    // Banker's (Player 7 stands, Banker 0–5).
+    const thirdCardTips: string[] = [];
+    for (const rank of RANKS) {
+      for (const total of [0, 1, 2, 3, 4, 5]) {
+        for (const result of [dealFromValues([total, 0, rank], [7, 0]), dealFromValues([6, 1], [total, 0, rank])]) {
+          const tips = explainSteps(result, DEFAULT_RULES);
+          result.steps.forEach((step, i) => {
+            if (step.type === 'deal' && step.index === 2) thirdCardTips.push(tips[i]!);
+          });
+        }
+      }
+    }
+    expect(thirdCardTips).toHaveLength(RANKS.length * 6 * 2);
+    const shortest = Math.min(...thirdCardTips.map((tip) => tip.length));
+    expect(faceDownTip('player').length).toBeLessThanOrEqual(shortest);
+    expect(faceDownTip('banker').length).toBeLessThanOrEqual(shortest);
   });
 });
 

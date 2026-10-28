@@ -42,10 +42,16 @@ export interface AnimState {
   announce: string;
   /** The Dragon 7 / Panda 8 moment being shown (null = none). Cleared by the next deal, a skip or a reset. */
   celebration: Celebration | null;
+  /**
+   * The speed (base delay) the hand or shuffle in play was dealt at: its timeline is fixed to it, so the felt's own
+   * animations follow it too while it plays — a speed change takes effect from the next hand and never turns a squeezed
+   * card before or after the dealer calls it. null before anything was played.
+   */
+  base: number | null;
 }
 
 export type AnimAction =
-  | { type: 'begin'; held: SessionState | null; current: CurrentHand | null }
+  | { type: 'begin'; held: SessionState | null; current: CurrentHand | null; base: number }
   | { type: 'frame'; frame: Frame }
   | { type: 'done' }
   | { type: 'dismissLayout' }
@@ -66,13 +72,14 @@ export function initialAnimState(message = 'Place your bets'): AnimState {
     running: false,
     announce: '',
     celebration: null,
+    base: null,
   };
 }
 
 export function animReducer(state: AnimState, action: AnimAction): AnimState {
   switch (action.type) {
     case 'begin':
-      return { ...state, held: action.held, current: action.current, settled: false, running: true, announce: '', celebration: null };
+      return { ...state, held: action.held, current: action.current, settled: false, running: true, announce: '', celebration: null, base: action.base };
     case 'frame': {
       const f = action.frame;
       return {
@@ -209,7 +216,7 @@ export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): 
       const current: CurrentHand = { result: input.result, settlement: input.settlement, newShoe: input.newShoe };
       currentRef.current = current;
       busyRef.current = true;
-      store.dispatch({ type: 'begin', held: input.prev, current });
+      store.dispatch({ type: 'begin', held: input.prev, current, base: input.base });
       runner.start(
         buildHandTimeline({
           result: input.result,
@@ -233,7 +240,7 @@ export function useTableAnimation({ play, onEvent }: UseTableAnimationOptions): 
       runner.skip();
       currentRef.current = null;
       busyRef.current = true;
-      store.dispatch({ type: 'begin', held: null, current: null });
+      store.dispatch({ type: 'begin', held: null, current: null, base });
       runner.start(buildShuffleTimeline(shoe, rules, base));
     },
     [runner, store],

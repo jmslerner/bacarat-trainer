@@ -378,3 +378,134 @@ test('a Dragon 7 or Panda 8: the celebration over the felt, then the hit on the 
   }
   expect(problems).toEqual([]);
 });
+
+/** What a player sees, or a screen reader announces, of one side while its third card is squeezed (totals checked apart). */
+interface SqueezeLook {
+  back: boolean;
+  ring: string;
+  announced: string[];
+  label: string;
+  call: string;
+  tip: string | null;
+  glow: number;
+  celebration: number;
+}
+
+test('the squeeze at normal speed: a Dragon 7 and a miss look the same until the card turns, then only the hit is celebrated', async ({ page }) => {
+  const problems = watchConsole(page);
+  // Seed the session (its seed is the first random number drawn): with seed 2081 both third cards of hand 2 are squeezed
+  // misses, and hand 11 squeezes a Player miss, then the Banker's Dragon 7.
+  await page.addInitScript(() => {
+    const original = crypto.getRandomValues.bind(crypto);
+    let n = 0;
+    crypto.getRandomValues = ((array: ArrayBufferView | null) => {
+      if (array instanceof Uint32Array && array.length === 1) {
+        array[0] = (2081 + n * 7919) >>> 0;
+        n += 1;
+        return array;
+      }
+      return original(array as Uint32Array);
+    }) as Crypto['getRandomValues'];
+  });
+  await page.goto('/#play');
+  await page.evaluate(() => {
+    window.localStorage.setItem('bt:bankroll', '20000');
+    window.localStorage.setItem('bt:buyIn', '20000');
+  });
+  await page.reload();
+  const view = page.getByTestId('play-view');
+  const speed = page.getByLabel('Dealing speed');
+  const dealButton = page.getByTestId('deal-button');
+  await speed.selectOption('instant');
+  await expect(view).toHaveAttribute('data-phase', 'idle', { timeout: 20_000 });
+  await page.getByTestId('chip-25').click();
+  await page.locator('[data-bet="banker"]').click();
+  await page.getByTestId('chip-5').click();
+  await page.locator('[data-bet="dragon7"]').click();
+  await page.locator('[data-bet="panda8"]').click();
+  const setSpeed = async (value: 'instant' | 'normal'): Promise<void> => {
+    await speed.selectOption(value);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  };
+  const deal = async (first = false): Promise<void> => {
+    if (!first) await page.keyboard.press('r');
+    await page.keyboard.press(' ');
+  };
+  // Waited for with locator.waitFor (polled every frame): the card lies face down for only about a second.
+  const faceDown = (side: 'player' | 'banker') => page.locator(`[data-side="${side}"] [data-dealt][data-face-down="true"]`);
+  const look = (side: 'player' | 'banker'): Promise<SqueezeLook> =>
+    page.evaluate((side): SqueezeLook => {
+      const section = document.querySelector(`[data-side="${side}"]`) as HTMLElement;
+      const card = section.querySelectorAll<HTMLElement>('[data-dealt]')[2];
+      const cos = (el: Element): number => Number(/matrix(?:3d)?\(([^,]+)/.exec(getComputedStyle(el).transform)?.[1] ?? 1);
+      const ring = getComputedStyle(card, '::before');
+      return {
+        back: cos(card) * cos(card.firstElementChild as Element) < 0,
+        ring: ring.content === 'none' ? 'none' : ring.boxShadow,
+        announced: Array.from(card.querySelectorAll('svg[role="img"]'))
+          .filter((img) => img.closest('[aria-hidden="true"]') === null)
+          .map((img) => img.getAttribute('aria-label') ?? ''),
+        label: (section.getAttribute('aria-label') ?? '').replace(/total \d$/, 'total N'),
+        call: document.querySelector('[data-testid="dealer-call"]')?.textContent ?? '',
+        tip: document.querySelector('[data-testid="dealer-tip"]')?.textContent ?? null,
+        glow: document.querySelectorAll('[data-glow]').length,
+        celebration: document.querySelectorAll('[data-testid="bonus-celebration"]').length,
+      };
+    }, side);
+  const handArea = (side: 'player' | 'banker') => page.locator(`[data-side="${side}"]`);
+  const gold = 'rgba(241, 214, 120, 0.45) 0px 0px 0px 2px, rgba(241, 214, 120, 0.5) 0px 0px 28px 8px';
+  const pearl = 'rgba(233, 228, 242, 0.45) 0px 0px 0px 2px, rgba(233, 228, 242, 0.5) 0px 0px 28px 8px';
+
+  await deal(true); // hand 1: a natural
+  await setSpeed('normal');
+  // Hand 2: Player 3 Q draws a 7 (3 → 0), Banker 2 9 draws a K (1 → 1) — two misses, both squeezed.
+  await deal();
+  await faceDown('player').waitFor({ state: 'attached', timeout: 15_000 });
+  const missPlayer = await look('player');
+  await expect(handArea('player')).toHaveAttribute('data-total', '3');
+  await expect(faceDown('player')).toHaveCount(0, { timeout: 3_000 });
+  await expect(handArea('player')).toHaveAttribute('data-total', '0');
+  await faceDown('banker').waitFor({ state: 'attached', timeout: 15_000 });
+  const missBanker = await look('banker');
+  await expect(handArea('banker')).toHaveAttribute('data-total', '1');
+  await expect(faceDown('banker')).toHaveCount(0, { timeout: 3_000 });
+  await expect(dealButton).toHaveText(/^Deal/, { timeout: 15_000 });
+  expect(missPlayer).toEqual({
+    back: true,
+    ring: pearl,
+    announced: ['Face-down card'],
+    label: 'Player: 3 cards, the third face down, total N',
+    call: 'Card to Player',
+    tip: 'WhyPlayer’s third card is squeezed: it could still make a Panda 8.',
+    glow: 0,
+    celebration: 0,
+  });
+  expect(missBanker).toEqual({
+    ...missPlayer,
+    ring: gold,
+    label: 'Banker: 3 cards, the third face down, total N',
+    call: 'Card to Banker',
+    tip: 'WhyBanker’s third card is squeezed: it could still make a Dragon 7.',
+  });
+  // Turned, a miss keeps nothing of the squeeze.
+  expect(await look('player')).toMatchObject({ back: false, ring: 'none', announced: ['Seven of Spades'], glow: 0, celebration: 0 });
+  expect(await look('banker')).toMatchObject({ back: false, ring: 'none', announced: ['King of Diamonds'], glow: 0, celebration: 0 });
+
+  await setSpeed('instant');
+  for (let hand = 3; hand <= 10; hand++) await deal();
+  await setSpeed('normal');
+  // Hand 11: Player A Q draws a J (1 → 1), Banker 10 K draws a 7 (0 → 7) — a Panda 8 miss, then the Dragon 7.
+  await deal();
+  await faceDown('player').waitFor({ state: 'attached', timeout: 15_000 });
+  expect(await look('player')).toEqual(missPlayer);
+  await expect(faceDown('player')).toHaveCount(0, { timeout: 3_000 });
+  await faceDown('banker').waitFor({ state: 'attached', timeout: 15_000 });
+  const hitBanker = await look('banker');
+  await expect(handArea('banker')).toHaveAttribute('data-total', '0');
+  expect(hitBanker).toEqual(missBanker);
+  await expect(faceDown('banker')).toHaveCount(0, { timeout: 3_000 });
+  await expect(handArea('banker')).toHaveAttribute('data-total', '7');
+  await expect(page.getByTestId('bonus-celebration')).toHaveAttribute('data-kind', 'dragon7', { timeout: 10_000 });
+  expect(await look('banker')).toMatchObject({ back: false, ring: 'none', announced: ['Seven of Diamonds'] });
+  expect(problems).toEqual([]);
+});
